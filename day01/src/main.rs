@@ -1,58 +1,45 @@
+use rayon::prelude::*;
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 use std::fs;
 
 fn main() {
-    let mut input = fs::read_to_string("input10000").unwrap();
-    input.push('\n');
-    println!("Part1: {}", part1(&input));
-    println!("Part2: {}", part2(&input, 3));
+    let input = fs::read_to_string("input1000").unwrap();
+
+    // split and cast to integers in parallel
+    let elf_totals: Vec<u32> = input
+        .replace("\n\n", "~")
+        .par_split('~')
+        .map(|s| s.lines().map(|x| x.parse::<u32>().unwrap()).sum())
+        .collect();
+
+    let answer = solution(&elf_totals, 3);
+    println!("Part1 : {} \nPart2 : {}", answer.0, answer.1);
 }
 
-fn part1(cals: &str) -> u32 {
-    let mut max = 0;
-    let mut run = 0;
-
-    for line in cals.lines() {
-        if line.is_empty() {
-            if run > max {
-                max = run;
-            }
-            run = 0;
-            continue;
-        }
-
-        run += line.parse::<u32>().unwrap();
-    }
-
-    max
-}
-
-fn part2(cals: &str, top_n: usize) -> u32 {
+fn solution(cals: &[u32], top_n: usize) -> (u32, u32) {
     let mut top = BinaryHeap::new();
-    let mut run = 0;
 
-    for line in cals.lines() {
-        if line.is_empty() {
-            if top.len() < top_n {
-                top.push(Reverse(run));
-            } else if top.peek().unwrap() > &Reverse(run) {
-                top.pop();
-                top.push(Reverse(run));
-            }
-            run = 0;
-            continue;
+    for val in cals {
+        if top.len() < top_n {
+            top.push(Reverse(val));
+        } else if top.peek().unwrap() > &Reverse(val) {
+            top.pop();
+            top.push(Reverse(val));
         }
-
-        run += line.parse::<u32>().unwrap();
     }
 
-    top.iter()
+    let Reverse(part1) = top.iter().min().unwrap();
+
+    let part2 = top
+        .iter()
         .map(|u| {
-            let Reverse(v) = u;
+            let Reverse(v) = *u;
             v
         })
-        .sum()
+        .sum();
+
+    (**part1, part2)
 }
 
 #[cfg(test)]
@@ -78,11 +65,11 @@ mod tests {
 
     #[test]
     fn part1_example() {
-        assert_eq!(part1(INPUT), 24000);
-    }
+        let elf_totals: Vec<u32> = INPUT
+            .split("\n\n")
+            .map(|s| s.lines().map(|x| x.parse::<u32>().unwrap()).sum())
+            .collect();
 
-    #[test]
-    fn part2_example() {
-        assert_eq!(part2(INPUT, 3), 45000);
+        assert_eq!(solution(&elf_totals, 3), (24000, 45000));
     }
 }
