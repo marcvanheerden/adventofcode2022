@@ -1,71 +1,73 @@
-use std::fs;
-use std::collections::HashSet;
 use rayon::prelude::*;
+use std::collections::HashSet;
+use std::fs;
+
+const UPPERCASE_START: u8 = 96;
+const LOWERCASE_START: u8 = 64;
 
 fn main() {
     let input = fs::read_to_string("input10000").unwrap();
-    let answer = solution(&input);
-    println!("Part1: {} \nPart2: {}", answer, solution2(&input, 3));
+    let answer = solution(&input, 3);
+    println!("Part1: {} \nPart2: {}", answer.0, answer.1);
 }
 
 fn prior(item: char) -> u32 {
     let ascii = item as u8;
-    if ascii > 96 {
-        return ascii as u32 - 96
+    if ascii > UPPERCASE_START {
+        return (ascii - UPPERCASE_START) as u32;
     }
 
-    ascii as u32 - 64 + 26
+    ((ascii - LOWERCASE_START) as u32) + 26
 }
 
-fn solution(contents: &str) -> u32 {
-
-    contents.par_lines()
-        .map(|s| {
-            let length = s.len();
-            let mut record = HashSet::new();
-            for (idx, chr) in s.chars().enumerate() {
-                if idx < (length / 2) {
-                    record.insert(chr);
-                } else {
-                    if record.contains(&chr) {
-                        return prior(chr)
-                    }
-                }
-            }
-            0u32
-        })
-        .sum()
-}
-
-fn solution2(contents: &str, seg_size: usize) -> u32 {
-
+fn solution(contents: &str, seg_size: usize) -> (u32, u32) {
     let sacks: Vec<&str> = contents.lines().collect();
     let segments: Vec<usize> = (0..(sacks.len() / seg_size)).into_iter().collect();
 
-    segments.par_iter()
-            .map(|idx| {
-        let mut record = HashSet::new();
-        let mut record2 = HashSet::new();
+    // split out segments and process in parallel
+    segments
+        .par_iter()
+        .map(|idx| {
+            let group_sacks = &sacks[(idx * seg_size)..((idx + 1) * seg_size)];
 
-        let group_sacks = &sacks[(idx*seg_size)..((idx + 1) * seg_size)];
+            let part1 = group_sacks
+                .iter()
+                .map(|s| {
+                    let length = s.len();
+                    let mut record = HashSet::new();
+                    for (idx, chr) in s.chars().enumerate() {
+                        if idx < (length / 2) {
+                            record.insert(chr);
+                        } else if record.contains(&chr) {
+                            return prior(chr);
+                        }
+                    }
+                    0u32
+                })
+                .sum();
 
-        for chr in group_sacks[0].chars() {
-            record.insert(chr);
-        }
+            // part 2
+            let mut record = HashSet::new();
+            let mut record2 = HashSet::new();
 
-        for chr in group_sacks[1].chars() {
-            if record.contains(&chr) {
-                record2.insert(chr);
+            for chr in group_sacks[0].chars() {
+                record.insert(chr);
             }
-        }
-        
-        for chr in group_sacks[2].chars() {
-            if record2.contains(&chr) {
-                return prior(chr)
+
+            for chr in group_sacks[1].chars() {
+                if record.contains(&chr) {
+                    record2.insert(chr);
+                }
             }
-        }
-        0u32
-    }).sum()
+
+            for chr in group_sacks[2].chars() {
+                if record2.contains(&chr) {
+                    return (part1, prior(chr));
+                }
+            }
+            (0u32, 0u32)
+        })
+        .reduce(|| (0, 0), |acc, x| (acc.0 + x.0, acc.1 + x.1))
 }
 
 #[cfg(test)]
@@ -87,11 +89,6 @@ CrZsJsPPZsGzwwsLwLmpwMDw
 
     #[test]
     fn example() {
-        assert_eq!(solution(INPUT), 157);
-    }
-
-    #[test]
-    fn example2() {
-        assert_eq!(solution2(INPUT, 3), 70);
+        assert_eq!(solution(INPUT, 3), (157, 70));
     }
 }
