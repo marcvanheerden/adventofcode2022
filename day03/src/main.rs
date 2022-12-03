@@ -1,6 +1,6 @@
 use rayon::prelude::*;
-use std::collections::HashSet;
 use std::fs;
+use fxhash::FxHashSet;
 
 const UPPERCASE_START: u8 = 96;
 const LOWERCASE_START: u8 = 64;
@@ -35,7 +35,7 @@ fn solution(contents: &str, seg_size: usize) -> (u32, u32) {
                 .iter()
                 .map(|s| {
                     let length = s.len();
-                    let mut record = HashSet::new();
+                    let mut record = FxHashSet::default();
                     for (idx, chr) in s.chars().enumerate() {
                         if idx < (length / 2) {
                             record.insert(chr);
@@ -48,8 +48,8 @@ fn solution(contents: &str, seg_size: usize) -> (u32, u32) {
                 .sum();
 
             // part 2
-            let record0: HashSet<char> = group_sacks[0].chars().collect();
-            let record1: HashSet<char> = group_sacks[1].chars().collect();
+            let record0: FxHashSet<char> = group_sacks[0].chars().collect();
+            let record1: FxHashSet<char> = group_sacks[1].chars().collect();
 
             for chr in group_sacks[2].chars() {
                 if record0.contains(&chr) & record1.contains(&chr) {
