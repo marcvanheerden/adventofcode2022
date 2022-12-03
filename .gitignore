@@ -1,0 +1,12 @@
+*input
+*input10
+*input100
+*input1000
+*input10000
+*.lock
+*.toml
+target
+*ipynb*
+.DS_Store
+*.zip
+*.py
