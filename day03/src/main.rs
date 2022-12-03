@@ -1,14 +1,14 @@
-use rayon::prelude::*;
 use std::fs;
-use fxhash::FxHashSet;
+use itertools::Itertools;
 
 const UPPERCASE_START: u8 = 96;
 const LOWERCASE_START: u8 = 64;
 const ALPHABET_LEN: u32 = 26;
+const SEG_SIZE: usize = 3;
 
 fn main() {
     let input = fs::read_to_string("input10000").unwrap();
-    let answer = solution(&input, 3);
+    let answer = solution(&input);
     println!("Part1: {} \nPart2: {}", answer.0, answer.1);
 }
 
@@ -21,44 +21,44 @@ fn prior(item: char) -> u32 {
     ((ascii - LOWERCASE_START) as u32) + ALPHABET_LEN
 }
 
-fn solution(contents: &str, seg_size: usize) -> (u32, u32) {
-    let sacks: Vec<&str> = contents.lines().collect();
-    let segments: Vec<usize> = (0..(sacks.len() / seg_size)).into_iter().collect();
+fn solution(contents: &str) -> (u32, u32) {
+    let mut buffer = [[false; 123]; SEG_SIZE];
+    let mut total_pt1 = 0u32;
+    let mut total_pt2 = 0u32;
 
-    // split out segments and process in parallel
-    segments
-        .par_iter()
-        .map(|idx| {
-            let group_sacks = &sacks[(idx * seg_size)..((idx + 1) * seg_size)];
-
-            let part1 = group_sacks
-                .iter()
-                .map(|s| {
-                    let length = s.len();
-                    let mut record = FxHashSet::default();
-                    for (idx, chr) in s.chars().enumerate() {
-                        if idx < (length / 2) {
-                            record.insert(chr);
-                        } else if record.contains(&chr) {
-                            return prior(chr);
-                        }
+    for chunk in &contents.lines().chunks(SEG_SIZE) {
+        for (idx, line) in chunk.enumerate() {
+            // part 1
+            let div = line.len() / 2;
+            for (idx, chr) in line.chars().enumerate() {
+                if idx < div {
+                    buffer[0][chr as usize] = true;
+                } else {
+                    if buffer[0][chr as usize] {
+                        total_pt1 += prior(chr);
+                        break
                     }
-                    panic!("No element in both segments: part 1")
-                })
-                .sum();
-
-            // part 2
-            let record0: FxHashSet<char> = group_sacks[0].chars().collect();
-            let record1: FxHashSet<char> = group_sacks[1].chars().collect();
-
-            for chr in group_sacks[2].chars() {
-                if record0.contains(&chr) & record1.contains(&chr) {
-                    return (part1, prior(chr));
                 }
             }
-            panic!("No element in all three segments: part 2")
-        })
-        .reduce(|| (0, 0), |acc, x| (acc.0 + x.0, acc.1 + x.1))
+            buffer[0] = [false; 123];
+
+            // part 2
+            if idx < (SEG_SIZE - 1) {
+                for chr in line.chars() {
+                    buffer[idx + 1][chr as usize] = true;
+                }
+            } else {
+                for chr in line.chars() {
+                    if buffer[1][chr as usize] & buffer[2][chr as usize] {
+                        total_pt2 += prior(chr);
+                        break
+                    }
+                }
+            }
+        }
+        buffer = [[false; 123]; SEG_SIZE];
+    }
+    (total_pt1, total_pt2)
 }
 
 #[cfg(test)]
@@ -80,6 +80,6 @@ CrZsJsPPZsGzwwsLwLmpwMDw
 
     #[test]
     fn example() {
-        assert_eq!(solution(INPUT, 3), (157, 70));
+        assert_eq!(solution(INPUT), (157, 70));
     }
 }
