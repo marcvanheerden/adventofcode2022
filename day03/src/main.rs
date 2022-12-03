@@ -4,6 +4,7 @@ use std::fs;
 
 const UPPERCASE_START: u8 = 96;
 const LOWERCASE_START: u8 = 64;
+const ALPHABET_LEN: u32 = 26;
 
 fn main() {
     let input = fs::read_to_string("input10000").unwrap();
@@ -17,7 +18,7 @@ fn prior(item: char) -> u32 {
         return (ascii - UPPERCASE_START) as u32;
     }
 
-    ((ascii - LOWERCASE_START) as u32) + 26
+    ((ascii - LOWERCASE_START) as u32) + ALPHABET_LEN
 }
 
 fn solution(contents: &str, seg_size: usize) -> (u32, u32) {
@@ -42,30 +43,20 @@ fn solution(contents: &str, seg_size: usize) -> (u32, u32) {
                             return prior(chr);
                         }
                     }
-                    0u32
+                    panic!("No element in both segments: part 1")
                 })
                 .sum();
 
             // part 2
-            let mut record = HashSet::new();
-            let mut record2 = HashSet::new();
-
-            for chr in group_sacks[0].chars() {
-                record.insert(chr);
-            }
-
-            for chr in group_sacks[1].chars() {
-                if record.contains(&chr) {
-                    record2.insert(chr);
-                }
-            }
+            let record0: HashSet<char> = group_sacks[0].chars().collect();
+            let record1: HashSet<char> = group_sacks[1].chars().collect();
 
             for chr in group_sacks[2].chars() {
-                if record2.contains(&chr) {
+                if record0.contains(&chr) & record1.contains(&chr) {
                     return (part1, prior(chr));
                 }
             }
-            (0u32, 0u32)
+            panic!("No element in all three segments: part 2")
         })
         .reduce(|| (0, 0), |acc, x| (acc.0 + x.0, acc.1 + x.1))
 }
