@@ -17,10 +17,10 @@ fn solution(intervals: &str) -> (u32, u32) {
             let mut elf1 = elves.next().unwrap().split('-');
             let mut elf2 = elves.next().unwrap().split('-');
 
-            let elf1_start: u32 = elf1.next().unwrap().parse().unwrap();
-            let elf1_end: u32 = elf1.next().unwrap().parse().unwrap();
-            let elf2_start: u32 = elf2.next().unwrap().parse().unwrap();
-            let elf2_end: u32 = elf2.next().unwrap().parse().unwrap();
+            let elf1_start: u8 = elf1.next().unwrap().parse().unwrap();
+            let elf1_end: u8 = elf1.next().unwrap().parse().unwrap();
+            let elf2_start: u8 = elf2.next().unwrap().parse().unwrap();
+            let elf2_end: u8 = elf2.next().unwrap().parse().unwrap();
 
             if ((elf1_start <= elf2_start) & (elf1_end >= elf2_end))
                 | ((elf2_start <= elf1_start) & (elf2_end >= elf1_end))
