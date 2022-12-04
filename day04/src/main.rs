@@ -1,3 +1,4 @@
+use rayon::prelude::*;
 use std::fs;
 
 fn main() {
@@ -7,34 +8,36 @@ fn main() {
 }
 
 fn solution(intervals: &str) -> (u32, u32) {
-        
-    let mut overlaps1 = 0u32;
-    let mut overlaps2 = 0u32;
+    intervals
+        .par_lines()
+        .map(|s| {
+            let mut overlaps1 = 0u32;
+            let mut overlaps2 = 0u32;
+            let mut elves = s.split(',');
+            let mut elf1 = elves.next().unwrap().split('-');
+            let mut elf2 = elves.next().unwrap().split('-');
 
-    for interval in intervals.lines() {
-        let mut elves = interval.split(',');
-        let mut elf1 = elves.next().unwrap().split('-');
-        let mut elf2 = elves.next().unwrap().split('-');
+            let elf1_start: u32 = elf1.next().unwrap().parse().unwrap();
+            let elf1_end: u32 = elf1.next().unwrap().parse().unwrap();
+            let elf2_start: u32 = elf2.next().unwrap().parse().unwrap();
+            let elf2_end: u32 = elf2.next().unwrap().parse().unwrap();
 
-        let elf1_start: u32 = elf1.next().unwrap().parse().unwrap();
-        let elf1_end: u32 = elf1.next().unwrap().parse().unwrap();
-        let elf2_start: u32 = elf2.next().unwrap().parse().unwrap();
-        let elf2_end: u32 = elf2.next().unwrap().parse().unwrap();
-
-        if ((elf1_start <= elf2_start) & (elf1_end >= elf2_end)) | 
-            ((elf2_start <= elf1_start) & (elf2_end >= elf1_end)) {
-            overlaps1 += 1; 
-        }
-    
-        for val in elf2_start..=elf2_end {
-            if (elf1_start..=elf1_end).contains(&val) {
-                overlaps2 += 1;
-                break
+            if ((elf1_start <= elf2_start) & (elf1_end >= elf2_end))
+                | ((elf2_start <= elf1_start) & (elf2_end >= elf1_end))
+            {
+                overlaps1 += 1;
             }
-        }
-            
-    }
-    (overlaps1, overlaps2)
+
+            for val in elf2_start..=elf2_end {
+                if (elf1_start..=elf1_end).contains(&val) {
+                    overlaps2 += 1;
+                    break;
+                }
+            }
+
+            (overlaps1, overlaps2)
+        })
+        .reduce(|| (0, 0), |acc, x| (acc.0 + x.0, acc.1 + x.1))
 }
 
 #[cfg(test)]
