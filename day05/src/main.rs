@@ -1,78 +1,163 @@
 use std::fs;
+use std::num::ParseIntError;
+use std::str::FromStr;
 
 fn main() {
-    let input = fs::read_to_string("input").unwrap();
+    make_big_input("input", "day05_input10000", 10000);
+    let input = fs::read_to_string("day05_input10000").unwrap();
     let answer = solution(&input);
     println!("Part1: {} \nPart2: {}", answer.0, answer.1);
 }
 
-fn solution(instr: &str) -> (String, String) {
-    let mut foo = instr.split("\n\n");
+fn make_big_input(infile: &str, outfile: &str, scale_up: usize) {
+    let input = fs::read_to_string(infile).unwrap();
 
-    let init: Vec<&str> = foo.next().unwrap().lines().collect();
-    let moves = foo.next().unwrap();
+    let mut splits = input.split("\n\n");
+    let mut init = splits.next().unwrap().to_string();
+    let moves = splits.next().unwrap();
+    let mut extra_moves = "".to_string();
+    let reverse_moves = moves
+        .lines()
+        .rev()
+        .map(|s| {
+            let splits = s.split_whitespace().collect::<Vec<_>>();
+            let mut switch = "".to_owned();
+            switch.push_str(splits[0]);
+            switch.push(' ');
+            switch.push_str(splits[1]);
+            switch.push(' ');
+            switch.push_str(splits[2]);
+            switch.push(' ');
+            switch.push_str(splits[5]);
+            switch.push(' ');
+            switch.push_str(splits[4]);
+            switch.push(' ');
+            switch.push_str(splits[3]);
+            switch.push('\n');
+            switch
+        })
+        .collect::<String>();
 
-    let mut stacks: Vec<Vec<char>> = Vec::new();
-
-    for (idx, chr) in init[init.len() - 1].chars().enumerate() {
-        if chr == ' ' {
-            continue
+    for step in 1..=scale_up {
+        if (step % 2) == 1 {
+            extra_moves.push_str(&reverse_moves);
+        } else {
+            extra_moves.push_str(moves);
         }
-
-        let mut stack = Vec::new();
-
-        let mut stacks_ = init.iter().rev();
-        stacks_.next();
-
-        for line in stacks_ {
-            if line.len() <= (idx + 1) {
-                continue
-            }
-
-            let chars: Vec<char> = line.chars().collect();
-            if chars[idx] != ' ' {
-                stack.push(chars[idx]);
-            }
-        }
-        stacks.push(stack);
-
     }
 
-    let mut stacks2 = stacks.clone();
+    init.push('\n');
+    init.push('\n');
+    init.push_str(moves);
+    init.push_str(&extra_moves);
 
-    for move_ in moves.lines() {
-        let bar: Vec<_> = move_.split(' ').collect();
-        let quant: u32 = bar[1].parse().unwrap();
-        let orig: usize = bar[3].parse().unwrap();
-        let dest: usize = bar[5].parse().unwrap();
-
-        let mut holder: Vec<char> = Vec::new();
-
-        for _ in 1..=quant {
-            let trans = stacks[orig - 1].pop().unwrap();
-            stacks[dest - 1].push(trans);
-
-            holder.push(stacks2[orig - 1].pop().unwrap());
-        }
-
-        for chr in holder.iter().rev() {
-            stacks2[dest - 1].push(*chr);
-        }
-
-    }
-
-    dbg!(&stacks2);
-    let mut output1 = "".to_string();
-    let mut output2 = "".to_string();
-    for stack in stacks.iter() {
-        output1.push(stack[stack.len() - 1])
-    }
-    for stack in stacks2.iter() {
-        output2.push(stack[stack.len() - 1])
-    }
-    (output1, output2)
+    fs::write(outfile, init).unwrap();
 }
 
+#[derive(Debug)]
+struct Instruction {
+    quant: u32,
+    orig: usize,
+    dest: usize,
+}
+
+impl FromStr for Instruction {
+    type Err = ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let splits: Vec<_> = s.split_whitespace().collect();
+        let quant: u32 = splits[1].parse()?;
+        let orig: usize = splits[3].parse::<usize>()?;
+        let dest: usize = splits[5].parse::<usize>()?;
+
+        // switch to 0-indexing
+        Ok(Instruction {
+            quant,
+            orig: orig - 1,
+            dest: dest - 1,
+        })
+    }
+}
+
+#[derive(Clone, Debug)]
+struct CrateYard {
+    stacks: Vec<Vec<char>>,
+}
+
+impl FromStr for CrateYard {
+    type Err = ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // assumes that labels are single digits
+
+        let mut init = s.lines().rev();
+        let positions: Vec<usize> = init
+            .next()
+            .expect("Empty input")
+            .chars()
+            .enumerate()
+            .filter(|(_idx, val)| *val != ' ')
+            .map(|(idx, _val)| idx)
+            .collect();
+
+        let mut stacks = vec![Vec::new(); positions.len()];
+
+        for line in init {
+            let chars: Vec<char> = line.chars().collect();
+            for (idx, pos) in positions.iter().enumerate() {
+                if line.len() <= (pos + 1) {
+                    continue;
+                }
+
+                if chars[*pos] != ' ' {
+                    stacks[idx].push(chars[*pos]);
+                }
+            }
+        }
+        Ok(CrateYard { stacks })
+    }
+}
+
+impl CrateYard {
+    fn move_crates_pt1(&mut self, inst: &Instruction) {
+        for _ in 0..inst.quant {
+            let moved = self.stacks[inst.orig].pop().unwrap();
+            self.stacks[inst.dest].push(moved);
+        }
+    }
+
+    fn move_crates_pt2(&mut self, inst: &Instruction) {
+        let mut holder: Vec<char> = Vec::with_capacity(inst.quant as usize);
+        for _ in 0..inst.quant {
+            holder.push(self.stacks[inst.orig].pop().unwrap());
+        }
+
+        for chr in holder.into_iter().rev() {
+            self.stacks[inst.dest].push(chr);
+        }
+    }
+
+    fn top_crates(&self) -> String {
+        self.stacks.iter().map(|v| v.last().unwrap()).collect()
+    }
+}
+
+fn solution(instr: &str) -> (String, String) {
+    let mut splits = instr.split("\n\n");
+    let init = splits.next().unwrap();
+    let moves = splits.next().unwrap();
+
+    let mut crate_yard1 = CrateYard::from_str(init).unwrap();
+    let mut crate_yard2 = crate_yard1.clone();
+
+    for move_ in moves.lines() {
+        let instruction = Instruction::from_str(move_).unwrap();
+        crate_yard1.move_crates_pt1(&instruction);
+        crate_yard2.move_crates_pt2(&instruction);
+    }
+
+    (crate_yard1.top_crates(), crate_yard2.top_crates())
+}
 
 #[cfg(test)]
 mod tests {
