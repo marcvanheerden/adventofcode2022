@@ -1,9 +1,11 @@
+use rayon::prelude::*;
 use std::fs;
 use std::num::ParseIntError;
 use std::str::FromStr;
+use std::thread;
 
 fn main() {
-    make_big_input("input", "day05_input10000", 10000);
+    //make_big_input("input", "day05_input10000", 10000);
     let input = fs::read_to_string("day05_input10000").unwrap();
     let answer = solution(&input);
     println!("Part1: {} \nPart2: {}", answer.0, answer.1);
@@ -150,13 +152,32 @@ fn solution(instr: &str) -> (String, String) {
     let mut crate_yard1 = CrateYard::from_str(init).unwrap();
     let mut crate_yard2 = crate_yard1.clone();
 
-    for move_ in moves.lines() {
-        let instruction = Instruction::from_str(move_).unwrap();
-        crate_yard1.move_crates_pt1(&instruction);
-        crate_yard2.move_crates_pt2(&instruction);
-    }
+    let instructions: Vec<_> = moves
+        .par_lines()
+        .map(|s| Instruction::from_str(s).unwrap())
+        .collect();
 
-    (crate_yard1.top_crates(), crate_yard2.top_crates())
+    let mut top_crates1 = "".to_string();
+    let mut top_crates2 = "".to_string();
+
+    thread::scope(|s| {
+        let thread1 = s.spawn(|| {
+            for instruction in instructions.iter() {
+                crate_yard1.move_crates_pt1(instruction);
+            }
+            crate_yard1.top_crates()
+        });
+        let thread2 = s.spawn(|| {
+            for instruction in instructions.iter() {
+                crate_yard2.move_crates_pt2(instruction);
+            }
+            crate_yard2.top_crates()
+        });
+        top_crates1 = thread1.join().unwrap();
+        top_crates2 = thread2.join().unwrap();
+    });
+
+    (top_crates1, top_crates2)
 }
 
 #[cfg(test)]
