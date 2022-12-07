@@ -1,89 +1,94 @@
+use rand::Rng;
+use rayon::prelude::*;
 use std::fs;
-//use std::rc::Rc;
 
 fn main() {
-    let input = fs::read_to_string("input").unwrap();
-    let part1 = solution(&input);
-    let part2 = solution2(&input);
+    let input = fs::read_to_string("day07_input12000").unwrap();
+    let (dir_sizes, usage) = get_sizes(&input);
+    let part1 = solution1(&dir_sizes, 100000);
+    let part2 = solution2(&dir_sizes, usage, 700000000, 300000000);
     println!("Part1: {:?} \nPart2: {:?}", part1, part2);
+
+    //let mut commands = "$ cd /\n$ ls\n".to_owned();
+    //big_input(&mut commands, 0);
+    //fs::write("day07_input10000", &commands).unwrap();
+    //println!("{} {}", solution(&commands), solution2(&commands));
+    //println!("{}", commands);
 }
 
-fn solution(commands: &str) -> u32 {
+fn ran(start: u32, end: u32) -> u32 {
+    rand::thread_rng().gen_range(start..=end)
+}
+
+fn big_input(comm: &mut String, depth: usize) {
+    let dirs = if depth > 5 { 0 } else { ran(1, 20) };
+    let dir_ls: String = (0..dirs)
+        .map(|d| format!("dir {}\n", (d + 65) as u8 as char))
+        .collect();
+    let files: String = (0..ran(1, 3))
+        .map(|_| format!("{} file{}\n", ran(1, 320), ran(65, 90) as u8 as char))
+        .collect();
+
+    comm.push_str(&dir_ls);
+    comm.push_str(&files);
+
+    for dir in 0..dirs {
+        comm.push_str(&format!("$ cd {}\n$ ls\n", (dir + 65) as u8 as char));
+        big_input(comm, depth + 1);
+    }
+    comm.push_str("$ cd ..\n");
+}
+
+fn solution1(sizes: &[u32], cutoff: u32) -> u32 {
+    sizes.iter().filter(|i| i < &&cutoff).sum()
+}
+
+fn get_sizes(commands: &str) -> (Vec<u32>, u32) {
     let comm: Vec<Vec<&str>> = commands
         .lines()
         .map(|s| s.split_whitespace().collect())
         .collect();
 
-    let mut sizes = Vec::new();
+    let mut dir_sizes = Vec::new();
+    let mut usage = 0u32;
 
     for idx1 in 0..comm.len() {
         if comm[idx1][1] == "cd" {
             if comm[idx1][2] != ".." {
                 let mut size = 0u32;
                 let mut depth = 0i32;
-                for idx2 in (idx1 + 1)..comm.len() {
-                    if (comm[idx2][1] == "cd") {
-                        if (comm[idx2][2] == "..") {
+                for command in comm.iter().skip(idx1 + 1) {
+                    if command[1] == "cd" {
+                        if command[2] == ".." {
                             depth -= 1;
                         } else {
                             depth += 1;
                         }
-                    } else if !["$", "dir"].contains(&comm[idx2][0]) {
-                        size += comm[idx2][0].parse::<u32>().unwrap();
+                    } else if !["$", "dir"].contains(&command[0]) {
+                        size += command[0].parse::<u32>().unwrap();
                     }
 
                     if depth < 0 {
                         break;
                     }
                 }
-                sizes.push(size);
+                dir_sizes.push(size);
             }
+        } else if let Ok(filesize) = comm[idx1][0].parse::<u32>() {
+            usage += filesize;
         }
     }
-    sizes.iter().filter(|i| i < &&100000).sum()
+
+    (dir_sizes, usage)
 }
 
-fn solution2(commands: &str) -> u32 {
-    let comm: Vec<Vec<&str>> = commands
-        .lines()
-        .map(|s| s.split_whitespace().collect())
-        .collect();
-
-    let mut sizes = Vec::new();
-
-    for idx1 in 0..comm.len() {
-        if (comm[idx1][1] == "cd") {
-            if (comm[idx1][2] != "..") {
-                let mut size = 0u32;
-                let mut depth = 0i32;
-                for idx2 in (idx1 + 1)..comm.len() {
-                    if (comm[idx2][1] == "cd") {
-                        if (comm[idx2][2] == "..") {
-                            depth -= 1;
-                        } else {
-                            depth += 1;
-                        }
-                    } else if !["$", "dir"].contains(&comm[idx2][0]) {
-                        size += comm[idx2][0].parse::<u32>().unwrap();
-                    }
-
-                    if depth < 0 {
-                        break;
-                    }
-                }
-                sizes.push(size);
-            }
-        }
-    }
-    let space_needed = 70000000 - 30000000;
-    let space_used: u32 = comm.iter().map(|v| { 
-        if !["$", "dir"].contains(&v[0]) {
-            v[0].parse::<u32>().unwrap()
-        } else {
-            0u32
-        }
-    }).sum();
-    *sizes.iter().filter(|i| i > &&(space_used - space_needed)).min().unwrap()
+fn solution2(sizes: &[u32], space_used: u32, total_space: u32, space_needed: u32) -> u32 {
+    let space_shortfall = total_space - space_needed;
+    *sizes
+        .iter()
+        .filter(|i| i > &&(space_used - space_shortfall))
+        .min()
+        .unwrap()
 }
 
 #[cfg(test)]
@@ -115,7 +120,11 @@ $ ls
 8033020 d.log
 5626152 d.ext
 7214296 k";
-        assert_eq!(solution(input1), 95437);
-        assert_eq!(solution2(input1), 24933642);
+
+        let (dir_sizes, usage) = get_sizes(input1);
+        let part1 = solution1(&dir_sizes, 100000);
+        let part2 = solution2(&dir_sizes, usage, 70000000, 30000000);
+        assert_eq!(part1, 95437);
+        assert_eq!(part2, 24933642);
     }
 }
