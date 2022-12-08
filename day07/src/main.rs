@@ -17,7 +17,7 @@ fn main() {
     //println!("{}", commands);
 }
 
-enum CMD {
+enum Cmd {
     DownDir,
     UpDir,
     Ls,
@@ -25,25 +25,25 @@ enum CMD {
     Dir,
 }
 
-impl FromStr for CMD {
+impl FromStr for Cmd {
     type Err = ();
 
-    fn from_str(input: &str) -> Result<CMD, Self::Err> {
+    fn from_str(input: &str) -> Result<Cmd, Self::Err> {
         let split: Vec<_> = input.split_whitespace().collect();
 
         match split[0] {
             "$" => match split.len() {
                 3 => {
                     if split[2] == ".." {
-                        Ok(CMD::UpDir)
+                        Ok(Cmd::UpDir)
                     } else {
-                        Ok(CMD::DownDir)
+                        Ok(Cmd::DownDir)
                     }
                 }
-                _ => Ok(CMD::Ls),
+                _ => Ok(Cmd::Ls),
             },
-            "dir" => Ok(CMD::Dir),
-            _ => Ok(CMD::File(split[0].parse::<u32>().unwrap())),
+            "dir" => Ok(Cmd::Dir),
+            _ => Ok(Cmd::File(split[0].parse::<u32>().unwrap())),
         }
     }
 }
@@ -72,13 +72,10 @@ fn big_input(comm: &mut String, depth: usize) {
 }
 
 fn par_get_sizes(commands: &str) -> (Vec<u32>, u32) {
-    let comm: Vec<CMD> = commands
+    let comm: Vec<Cmd> = commands
         .lines()
-        .map(|s| CMD::from_str(s).unwrap())
-        .filter(|c| match c {
-            CMD::Ls | CMD::Dir => false,
-            _ => true,
-        })
+        .map(|s| Cmd::from_str(s).unwrap())
+        .filter(|c| !matches!(c, Cmd::Ls | Cmd::Dir))
         .collect();
 
     let indices: Vec<_> = (0..comm.len()).collect();
@@ -90,18 +87,18 @@ fn par_get_sizes(commands: &str) -> (Vec<u32>, u32) {
             let mut usage = 0u32;
 
             match comm[*idx] {
-                CMD::DownDir => {
+                Cmd::DownDir => {
                     let mut size = 0u32;
                     let mut depth = 0i8;
                     for command in comm.iter().skip(idx + 1) {
                         match command {
-                            CMD::DownDir => {
+                            Cmd::DownDir => {
                                 depth += 1;
                             }
-                            CMD::UpDir => {
+                            Cmd::UpDir => {
                                 depth -= 1;
                             }
-                            CMD::File(size_) => {
+                            Cmd::File(size_) => {
                                 size += size_;
                             }
                             _ => (),
@@ -113,7 +110,7 @@ fn par_get_sizes(commands: &str) -> (Vec<u32>, u32) {
                     }
                     dir_size = size;
                 }
-                CMD::File(size) => {
+                Cmd::File(size) => {
                     usage = size;
                 }
                 _ => (),
