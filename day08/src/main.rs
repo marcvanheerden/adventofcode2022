@@ -1,13 +1,21 @@
+use rayon::prelude::*;
 use std::cmp::max;
 use std::fs;
 use std::str::FromStr;
+use std::thread;
 
+// 14 ms parse, 140ms part1, 200ms part2
 fn main() {
     //big_input();
     let input: String = fs::read_to_string("day08_input1024").unwrap();
     let treemap = TreeMap::from_str(&input).unwrap();
-    let part1 = solution1(&treemap);
-    let part2 = solution2(&treemap);
+    let mut part1 = 0u32;
+    let mut part2 = 0usize;
+    thread::scope(|s| {
+        let thread1 = s.spawn(|| solution1(&treemap));
+        part2 = solution2(&treemap);
+        part1 = thread1.join().unwrap();
+    });
     println!("Part1: {:?} \nPart2: {:?}", part1, part2);
 }
 
@@ -29,14 +37,10 @@ struct TreeMap {
 impl FromStr for TreeMap {
     type Err = ();
     fn from_str(input: &str) -> Result<TreeMap, Self::Err> {
-        let mut trees: Vec<Vec<u8>> = Vec::new();
-
-        for (idx, line) in input.lines().enumerate() {
-            trees.push(Vec::new());
-            for tree in line.chars() {
-                trees[idx].push(tree as u8 - 48); // numerics start at ascii 48
-            }
-        }
+        let trees: Vec<Vec<u8>> = input
+            .par_lines()
+            .map(|l| l.chars().map(|c| c as u8 - 48).collect::<Vec<u8>>())
+            .collect();
 
         let height = trees.len() as isize;
         let width = trees[0].len() as isize;
@@ -120,38 +124,43 @@ fn solution1(treemap: &TreeMap) -> u32 {
 
 fn solution2(treemap: &TreeMap) -> usize {
     let orientations = [Orient::Orig, Orient::Cw90, Orient::Cw180, Orient::Cw270];
-    let mut max_out = 0usize;
 
-    for y in 1..(treemap.height - 1) {
-        for x in 1..(treemap.width - 1) {
-            let mut output = 1usize;
-            let current_height = treemap.get_unchecked(y, x, &Orient::Orig);
+    let columns: Vec<_> = (1..(treemap.height - 1)).collect();
 
-            for orient in &orientations {
-                let mut steps = 0usize;
-                for idx in 1..max(treemap.width, treemap.height) {
-                    let (yo, xo) = match orient {
-                        Orient::Orig => (y, x + idx),
-                        Orient::Cw90 => (y + idx, x),
-                        Orient::Cw180 => (y, x - idx),
-                        Orient::Cw270 => (y - idx, x),
-                    };
-                    if let Some(val) = treemap.get(yo, xo, &Orient::Orig) {
-                        steps += 1;
-                        if val >= current_height {
+    columns
+        .par_iter()
+        .map(|y| {
+            let mut max_out = 0usize;
+            for x in 1..(treemap.width - 1) {
+                let mut output = 1usize;
+                let current_height = treemap.get_unchecked(*y, x, &Orient::Orig);
+
+                for orient in &orientations {
+                    let mut steps = 0usize;
+                    for idx in 1..max(treemap.width, treemap.height) {
+                        let (yo, xo) = match orient {
+                            Orient::Orig => (*y, x + idx),
+                            Orient::Cw90 => (*y + idx, x),
+                            Orient::Cw180 => (*y, x - idx),
+                            Orient::Cw270 => (*y - idx, x),
+                        };
+                        if let Some(val) = treemap.get(yo, xo, &Orient::Orig) {
+                            steps += 1;
+                            if val >= current_height {
+                                break;
+                            }
+                        } else {
                             break;
                         }
-                    } else {
-                        break;
                     }
+                    output *= steps;
                 }
-                output *= steps;
+                max_out = max(output, max_out);
             }
-            max_out = max(output, max_out);
-        }
-    }
-
-    max_out
+            max_out
+        })
+        .max()
+        .unwrap()
 }
 
 #[cfg(test)]
