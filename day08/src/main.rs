@@ -4,8 +4,7 @@ use std::str::FromStr;
 
 fn main() {
     //big_input();
-    //let input: String = fs::read_to_string("day08_input1024").unwrap();
-    let input: String = fs::read_to_string("input").unwrap();
+    let input: String = fs::read_to_string("day08_input1024").unwrap();
     let treemap = TreeMap::from_str(&input).unwrap();
     let part1 = solution1(&treemap);
     let part2 = solution2(&treemap);
@@ -59,6 +58,11 @@ impl TreeMap {
         Some(self.trees[y as usize][x as usize])
     }
 
+    fn get_unchecked(&self, y: isize, x: isize, orient: &Orient) -> u8 {
+        let (y, x) = self.translate_coords(y, x, orient);
+        self.trees[y as usize][x as usize]
+    }
+
     fn translate_coords(&self, y: isize, x: isize, orient: &Orient) -> (isize, isize) {
         match orient {
             Orient::Orig => (y, x),
@@ -99,8 +103,8 @@ fn solution1(treemap: &TreeMap) -> u32 {
         for y in 0..treemap.height {
             let mut max = 0u8;
             for x in 0..treemap.width {
-                if (x == 0) | (y == 0) | (treemap.get(y, x, &orient).unwrap() > max) {
-                    max = treemap.get(y, x, &orient).unwrap();
+                if (x == 0) | (y == 0) | (treemap.get_unchecked(y, x, &orient) > max) {
+                    max = treemap.get_unchecked(y, x, &orient);
                     let (yi, xi) = treemap.translate_coords(y, x, &orient);
                     vis_map[yi as usize][xi as usize] = true;
                 }
@@ -121,7 +125,7 @@ fn solution2(treemap: &TreeMap) -> usize {
     for y in 1..(treemap.height - 1) {
         for x in 1..(treemap.width - 1) {
             let mut output = 1usize;
-            let current_height = treemap.get(y, x, &Orient::Orig).unwrap();
+            let current_height = treemap.get_unchecked(y, x, &Orient::Orig);
 
             for orient in &orientations {
                 let mut steps = 0usize;
