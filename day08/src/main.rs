@@ -1,12 +1,72 @@
 use std::cmp::max;
 use std::fs;
+use std::str::FromStr;
 
 fn main() {
     //big_input();
-    let input: String = fs::read_to_string("day08_input1024").unwrap();
-    let part1 = solution1(&input);
-    let part2 = solution2(&input);
+    //let input: String = fs::read_to_string("day08_input1024").unwrap();
+    let input: String = fs::read_to_string("input").unwrap();
+    let treemap = TreeMap::from_str(&input).unwrap();
+    let part1 = solution1(&treemap);
+    let part2 = solution2(&treemap);
     println!("Part1: {:?} \nPart2: {:?}", part1, part2);
+}
+
+// orientation
+#[derive(Debug)]
+enum Orient {
+    Orig,
+    Cw90,
+    Cw180,
+    Cw270,
+}
+
+struct TreeMap {
+    trees: Vec<Vec<u8>>,
+    height: isize,
+    width: isize,
+}
+
+impl FromStr for TreeMap {
+    type Err = ();
+    fn from_str(input: &str) -> Result<TreeMap, Self::Err> {
+        let mut trees: Vec<Vec<u8>> = Vec::new();
+
+        for (idx, line) in input.lines().enumerate() {
+            trees.push(Vec::new());
+            for tree in line.chars() {
+                trees[idx].push(tree as u8 - 48); // numerics start at ascii 48
+            }
+        }
+
+        let height = trees.len() as isize;
+        let width = trees[0].len() as isize;
+        Ok(TreeMap {
+            trees,
+            height,
+            width,
+        })
+    }
+}
+
+impl TreeMap {
+    fn get(&self, y: isize, x: isize, orient: &Orient) -> Option<u8> {
+        let (y, x) = self.translate_coords(y, x, orient);
+        if (x < 0) | (y < 0) | (x >= self.width) | (y >= self.height) {
+            return None;
+        }
+
+        Some(self.trees[y as usize][x as usize])
+    }
+
+    fn translate_coords(&self, y: isize, x: isize, orient: &Orient) -> (isize, isize) {
+        match orient {
+            Orient::Orig => (y, x),
+            Orient::Cw90 => (x, self.height - 1 - y),
+            Orient::Cw180 => (self.height - 1 - y, self.width - 1 - x),
+            Orient::Cw270 => (self.width - 1 - x, y),
+        }
+    }
 }
 
 fn big_input() {
@@ -31,153 +91,79 @@ fn big_input() {
     fs::write("day08_input1024", dwide).unwrap();
 }
 
-fn solution1(map: &str) -> u32 {
-    let mut vmap: Vec<Vec<u8>> = Vec::new();
+fn solution1(treemap: &TreeMap) -> u32 {
+    let mut vis_map = vec![vec![false; treemap.width as usize]; treemap.height as usize];
 
-    for (idx, line) in map.lines().enumerate() {
-        vmap.push(Vec::new());
-        for tree in line.chars() {
-            vmap[idx].push(tree as u8 - 48);
-        }
-    }
-
-    let height = vmap.len();
-    let width = vmap[0].len();
-
-    let mut vis_map = vec![vec![false; width]; height];
-
-    // l to r
-    for y in 0..height {
-        let mut max = 0u8;
-        for x in 0..width {
-            if (x == 0) | (y == 0) {
-                max = vmap[y][x];
-                vis_map[y][x] = true;
-            } else if vmap[y][x] > max {
-                vis_map[y][x] = true;
-                max = vmap[y][x];
-            }
-        }
-    }
-
-    // r to l
-    for y in 0..height {
-        let mut max = 0u8;
-        for x in 0..width {
-            if (x == 0) | (y == 0) | (vmap[y][width - x - 1] > max) {
-                vis_map[y][width - x - 1] = true;
-                max = vmap[y][width - x - 1];
-            }
-        }
-    }
-
-    // t to b
-    for x in 0..width {
-        let mut max = 0u8;
-        for y in 0..height {
-            if (x == 0) | (y == 0) | (vmap[y][x] > max) {
-                vis_map[y][x] = true;
-                max = vmap[y][x];
-            }
-        }
-    }
-
-    // b to t
-    for x in 0..width {
-        let mut max = 0u8;
-        for y in 0..height {
-            if (x == 0) | (y == 0) | (vmap[height - y - 1][x] > max) {
-                vis_map[height - y - 1][x] = true;
-                max = vmap[height - y - 1][x];
-            }
-        }
-    }
-
-    let mut output = 0u32;
-    for row in vis_map {
-        for val in row {
-            if val {
-                output += 1
-            }
-        }
-    }
-
-    output
-}
-
-fn solution2(map: &str) -> usize {
-    let mut vmap: Vec<Vec<u8>> = Vec::new();
-
-    for (idx, line) in map.lines().enumerate() {
-        vmap.push(Vec::new());
-        for tree in line.chars() {
-            vmap[idx].push(tree as u8 - 48);
-        }
-    }
-
-    let height = vmap.len();
-    let width = vmap[0].len();
-
-    let mut bigmax = 0usize;
-    for y in 1..height {
-        for x in 1..width {
-            let (mut up, mut down, mut left, mut right) = (0, 0, 0, 0);
-
-            for yi in 1..=y {
-                up = yi;
-                if vmap[y - yi][x] >= vmap[y][x] {
-                    break;
+    let orientations = [Orient::Orig, Orient::Cw90, Orient::Cw180, Orient::Cw270];
+    for orient in orientations {
+        for y in 0..treemap.height {
+            let mut max = 0u8;
+            for x in 0..treemap.width {
+                if (x == 0) | (y == 0) | (treemap.get(y, x, &orient).unwrap() > max) {
+                    max = treemap.get(y, x, &orient).unwrap();
+                    let (yi, xi) = treemap.translate_coords(y, x, &orient);
+                    vis_map[yi as usize][xi as usize] = true;
                 }
             }
-
-            for yi in (y + 1)..height {
-                down = yi - y;
-                if vmap[yi][x] >= vmap[y][x] {
-                    break;
-                }
-            }
-
-            for xi in 1..=x {
-                left = xi;
-                if vmap[y][x - xi] >= vmap[y][x] {
-                    break;
-                }
-            }
-
-            for xi in (x + 1)..width {
-                right = xi - x;
-                if vmap[y][xi] >= vmap[y][x] {
-                    break;
-                }
-            }
-
-            bigmax = max(up * down * left * right, bigmax);
         }
     }
 
-    bigmax
-}
-
-fn viz(map: &[Vec<bool>]) {
-    let printout: Vec<String> = map
+    vis_map
         .iter()
-        .map(|v| {
-            v.iter()
-                .map(|b| if *b { '#' } else { '.' })
-                .collect::<String>()
-        })
-        .collect();
+        .map(|v| v.iter().filter(|x| **x).count())
+        .sum::<usize>() as u32
+}
 
-    println!();
-    for line in printout.iter() {
-        println!("{}", line);
+fn solution2(treemap: &TreeMap) -> usize {
+    let orientations = [Orient::Orig, Orient::Cw90, Orient::Cw180, Orient::Cw270];
+    let mut max_out = 0usize;
+
+    for y in 1..(treemap.height - 1) {
+        for x in 1..(treemap.width - 1) {
+            let mut output = 1usize;
+            let current_height = treemap.get(y, x, &Orient::Orig).unwrap();
+
+            for orient in &orientations {
+                let mut steps = 0usize;
+                for idx in 1..max(treemap.width, treemap.height) {
+                    let (yo, xo) = match orient {
+                        Orient::Orig => (y, x + idx),
+                        Orient::Cw90 => (y + idx, x),
+                        Orient::Cw180 => (y, x - idx),
+                        Orient::Cw270 => (y - idx, x),
+                    };
+                    if let Some(val) = treemap.get(yo, xo, &Orient::Orig) {
+                        steps += 1;
+                        if val >= current_height {
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+                output *= steps;
+            }
+            max_out = max(output, max_out);
+        }
     }
-    println!();
+
+    max_out
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn treemaps() {
+        let input = "12\n34";
+        let treemap = TreeMap::from_str(input).unwrap();
+
+        assert_eq!(treemap.translate_coords(0, 0, &Orient::Orig), (0, 0));
+        assert_eq!(treemap.translate_coords(0, 1, &Orient::Cw90), (1, 1));
+        assert_eq!(treemap.translate_coords(1, 0, &Orient::Cw180), (0, 1));
+        assert_eq!(treemap.translate_coords(1, 1, &Orient::Cw270), (0, 1));
+    }
 
     #[test]
     fn example() {
@@ -187,9 +173,10 @@ mod tests {
 33549
 35390";
 
-        let part1 = solution1(&input);
+        let treemap = TreeMap::from_str(&input).unwrap();
+        let part1 = solution1(&treemap);
         assert_eq!(part1, 21);
-        let part2 = solution2(&input);
+        let part2 = solution2(&treemap);
         assert_eq!(part2, 8);
     }
 }
