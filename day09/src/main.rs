@@ -1,11 +1,10 @@
+use fxhash::FxHashSet;
 use std::cmp::{max, Ordering};
 use std::fs;
 use std::str::FromStr;
 use std::thread;
-use fxhash::FxHashSet;
 
 fn main() {
-    //big_input();
     let input: String = fs::read_to_string("day09_input1000").unwrap();
     let moves: Vec<_> = input
         .lines()
@@ -91,12 +90,12 @@ fn solution(moves: &[Vector], knots: usize) -> usize {
                 Dir::L => positions[0].1 -= 1,
                 Dir::R => positions[0].1 += 1,
             }
-            
-            // move tails
+
+            // move tail(s)
             for idx in 1..knots {
                 positions[idx] = update_pos(&positions[idx - 1], &positions[idx]);
             }
-    
+
             // record tail position
             tail_pos.insert(positions[knots - 1]);
         }
