@@ -1,8 +1,8 @@
 use std::cmp::{max, Ordering};
-use std::collections::HashSet;
 use std::fs;
 use std::str::FromStr;
 use std::thread;
+use fxhash::FxHashSet;
 
 enum Dir {
     U,
@@ -47,8 +47,8 @@ fn main() {
     let mut part2 = 0u32;
 
     thread::scope(|s| {
-        let thread1 = s.spawn(|| solution1(&moves));
-        part2 = solution2(&moves, 10);
+        let thread1 = s.spawn(|| solution(&moves, 2));
+        part2 = solution(&moves, 10);
         part1 = thread1.join().unwrap();
     });
 
@@ -74,32 +74,9 @@ fn update_pos(refer: &(i32, i32), curr: &(i32, i32)) -> (i32, i32) {
     output
 }
 
-fn solution1(moves: &[Vector]) -> u32 {
-    let mut head = (0, 0);
-    let mut tail = (0, 0);
-    let mut tail_pos = HashSet::new();
-
-    for vect in moves.iter() {
-        for _ in 0..vect.mag {
-            // move head
-            match vect.dir {
-                Dir::U => head.0 += 1,
-                Dir::D => head.0 -= 1,
-                Dir::L => head.1 -= 1,
-                Dir::R => head.1 += 1,
-            };
-            tail = update_pos(&head, &tail);
-
-            tail_pos.insert(tail);
-        }
-    }
-
-    tail_pos.len() as u32
-}
-
-fn solution2(moves: &[Vector], knots: usize) -> u32 {
+fn solution(moves: &[Vector], knots: usize) -> u32 {
     let mut positions = vec![(0, 0); knots];
-    let mut tail_pos = HashSet::new();
+    let mut tail_pos = FxHashSet::default();
 
     for vect in moves.iter() {
         for _ in 0..vect.mag {
@@ -140,7 +117,7 @@ R 2";
             .map(|l| Vector::from_str(l).unwrap())
             .collect();
 
-        let part1 = solution1(&moves);
+        let part1 = solution(&moves, 2);
         assert_eq!(part1, 13);
     }
 
@@ -159,7 +136,7 @@ U 20";
             .map(|l| Vector::from_str(l).unwrap())
             .collect();
 
-        let part2 = solution2(&moves, 10);
+        let part2 = solution(&moves, 10);
         assert_eq!(part2, 36);
     }
 }
