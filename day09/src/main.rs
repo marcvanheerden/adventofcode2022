@@ -58,23 +58,22 @@ impl FromStr for Vector {
 }
 
 // update a tail knot position based on it's head position
-fn update_pos(refer: &(i32, i32), curr: &(i32, i32)) -> (i32, i32) {
+fn update_pos(refer: &(i32, i32), curr: &mut(i32, i32)) {
     let y_dist: i32 = refer.0 - curr.0;
     let x_dist: i32 = refer.1 - curr.1;
-    let mut output = *curr;
+
     if max(y_dist.abs(), x_dist.abs()) > 1 {
         match refer.0.cmp(&curr.0) {
-            Ordering::Less => output.0 -= 1,
+            Ordering::Less => curr.0 -= 1,
             Ordering::Equal => (),
-            Ordering::Greater => output.0 += 1,
+            Ordering::Greater => curr.0 += 1,
         }
         match refer.1.cmp(&curr.1) {
-            Ordering::Less => output.1 -= 1,
+            Ordering::Less => curr.1 -= 1,
             Ordering::Equal => (),
-            Ordering::Greater => output.1 += 1,
+            Ordering::Greater => curr.1 += 1,
         }
     }
-    output
 }
 
 fn solution(moves: &[Vector], knots: usize) -> usize {
@@ -93,7 +92,8 @@ fn solution(moves: &[Vector], knots: usize) -> usize {
 
             // move tail(s)
             for idx in 1..knots {
-                positions[idx] = update_pos(&positions[idx - 1], &positions[idx]);
+                let head = positions[idx - 1].clone();
+                update_pos(&head, &mut positions[idx]);
             }
 
             // record tail position
