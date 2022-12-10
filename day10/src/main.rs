@@ -1,97 +1,103 @@
 use std::fs;
+use std::str::FromStr;
+mod big_input;
 
 fn main() {
-    let input: String = fs::read_to_string("input").unwrap();
-    println!("{}", solution(&input, vec![20, 60, 100, 140, 180, 220]));
-    solution2(&input);
+    //let biginput = big_input::create();
+    //fs::write("day10_input32000", biginput).unwrap();
+
+    let input: String = fs::read_to_string("day10_input32000").unwrap();
+    let commands: Vec<_> = input.lines().map(|l| Cmd::from_str(l).unwrap()).collect();
+    let mut tracer = Tracer::new(40);
+
+    tracer.run(&commands, &[20, 60, 100, 140, 180, 220]);
+    println!("Part1: {}\nPart2:", tracer.checksum);
+    tracer.display_frame();
 }
 
-fn solution(input: &str, checks: Vec<usize>) -> i32 {
+#[derive(Debug, PartialEq)]
+enum Cmd {
+    Noop,
+    Addx(i32),
+}
 
-    let mut cycle = 0usize;
-    let mut reg = 1i32;
-    let mut points = 0i32;
-
-    for inst in input.lines() {
-
-        if inst == "noop" {
-            cycle += 1;
-            if checks.contains(&cycle) {
-                points += reg * (cycle as i32);
-            }
-            continue
+impl FromStr for Cmd {
+    type Err = ();
+    fn from_str(input: &str) -> Result<Cmd, Self::Err> {
+        if input == "noop" {
+            return Ok(Cmd::Noop);
         }
 
-        let split = inst.split_once(' ').unwrap();
-        
-        for _ in 0..2 {
-            cycle += 1;
-            if checks.contains(&cycle) {
-                points += reg * (cycle as i32);
-            }
+        let splits = input.split_once(' ').unwrap();
+
+        Ok(Cmd::Addx(splits.1.parse::<i32>().unwrap()))
+    }
+}
+
+struct Tracer {
+    reg_x: i32,
+    cycle: usize,
+    screen: Vec<bool>,
+    width: usize,
+    checksum: usize,
+}
+
+impl Tracer {
+    fn new(width: usize) -> Tracer {
+        Tracer {
+            reg_x: 1,
+            cycle: 0,
+            width,
+            screen: Vec::new(),
+            checksum: 0,
         }
-        reg += split.1.parse::<i32>().unwrap();
     }
 
-    points
-}
+    fn process_instr(&mut self, command: &Cmd, checks: &[usize]) {
+        // check if sprite and position overlap
+        let sprite = (self.reg_x - 1)..=(self.reg_x + 1);
+        let position = (self.cycle % self.width) as i32;
+        self.screen.push(sprite.contains(&position));
+        self.cycle += 1;
 
-fn solution2(input: &str) {
-
-    let mut cycle = 0usize;
-    let mut reg = 1i32;
-    let mut screen = vec!['.'; 240];
-
-    for inst in input.lines() {
-        if inst == "noop" {
-            let sprite = (reg - 1)..=(reg + 1);
-            let horiz = cycle - (cycle / 40) * 40;
-            for pix in sprite {
-                if horiz == (pix as usize) {
-                    screen[cycle] = '#';
-                    break
-                }
-            }
-            cycle += 1;
-
-            continue
+        if checks.contains(&self.cycle) {
+            self.checksum += self.cycle * (self.reg_x as usize);
         }
 
-        let split = inst.split_once(' ').unwrap();
-        
-        for _ in 0..2 {
-            let sprite = (reg - 1)..=(reg + 1);
-            let horiz = cycle - (cycle / 40) * 40;
-            for pix in sprite {
-                if horiz == (pix as usize) {
-                    screen[cycle] = '#';
-                    break
-                }
-            }
-            cycle += 1;
+        if let Cmd::Addx(shift) = command {
+            self.process_instr(&Cmd::Noop, checks);
+            self.reg_x += shift;
         }
-        reg += split.1.parse::<i32>().unwrap();
-
     }
 
-    dbg!(&screen);
-    println!("{}", &screen[0..40].iter().collect::<String>());
-    println!("{}", &screen[40..80].iter().collect::<String>());
-    println!("{}", &screen[80..120].iter().collect::<String>());
-    println!("{}", &screen[120..160].iter().collect::<String>());
-    println!("{}", &screen[160..200].iter().collect::<String>());
-    println!("{}", &screen[200..240].iter().collect::<String>());
+    fn run(&mut self, commands: &[Cmd], checks: &[usize]) {
+        for command in commands {
+            self.process_instr(command, checks);
+        }
+    }
 
+    fn display_frame(&self) {
+        let mut start = 0;
+        let mut end = self.width;
+
+        while end <= self.screen.len() {
+            println!(
+                "{}",
+                &self.screen[start..end]
+                    .iter()
+                    .map(|b| if *b { '#' } else { '.' })
+                    .collect::<String>()
+            );
+            start += self.width;
+            end += self.width;
+        }
+    }
 }
-
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn example() {
-        let input = "addx 15
+    const INPUT: &str = "addx 15
 addx -11
 addx 6
 addx -3
@@ -238,11 +244,30 @@ noop
 noop
 noop";
 
-        let part1 = solution(input, vec![20, 60, 100, 140, 180, 220]);
-        assert_eq!(part1, 13140);
-        solution2(input);
-        assert!(false);
+    #[test]
+    fn example() {
+        let commands: Vec<_> = INPUT.lines().map(|l| Cmd::from_str(l).unwrap()).collect();
+        let mut tracer = Tracer::new(40);
+        tracer.run(&commands, &vec![20, 60, 100, 140, 180, 220]);
+        assert_eq!(tracer.checksum, 13140);
     }
 
-
+    #[test]
+    fn test_encode() {
+        let commands: Vec<_> = INPUT.lines().map(|l| Cmd::from_str(l).unwrap()).collect();
+        let mut tracer = Tracer::new(40);
+        tracer.run(&commands, &Vec::new());
+        let mimic_input = big_input::encode(&tracer.screen, 40);
+        let commands2: Vec<_> = mimic_input
+            .lines()
+            .map(|l| Cmd::from_str(l).unwrap())
+            .collect();
+        let mut tracer2 = Tracer::new(40);
+        tracer2.run(&commands2, &Vec::new());
+        assert!(tracer
+            .screen
+            .iter()
+            .zip(tracer2.screen.iter())
+            .all(|(x, y)| x == y));
+    }
 }
