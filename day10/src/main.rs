@@ -1,5 +1,7 @@
 use std::fs;
 use std::str::FromStr;
+use fxhash::FxHashSet;
+use rayon::prelude::*;
 mod big_input;
 
 fn main() {
@@ -7,7 +9,7 @@ fn main() {
     //fs::write("day10_input32000", biginput).unwrap();
 
     let input: String = fs::read_to_string("day10_input32000").unwrap();
-    let commands: Vec<_> = input.lines().map(|l| Cmd::from_str(l).unwrap()).collect();
+    let commands: Vec<_> = input.par_lines().map(|l| Cmd::from_str(l).unwrap()).collect();
     let mut tracer = Tracer::new(40);
 
     tracer.run(&commands, &[20, 60, 100, 140, 180, 220]);
@@ -15,7 +17,7 @@ fn main() {
     tracer.display_frame();
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 enum Cmd {
     Noop,
     Addx(i32),
@@ -53,7 +55,7 @@ impl Tracer {
         }
     }
 
-    fn process_instr(&mut self, command: &Cmd, checks: &[usize]) {
+    fn process_instr(&mut self, command: &Cmd, checks: &FxHashSet<usize>) {
         // check if sprite and position overlap
         let sprite = (self.reg_x - 1)..=(self.reg_x + 1);
         let position = (self.cycle % self.width) as i32;
@@ -71,8 +73,15 @@ impl Tracer {
     }
 
     fn run(&mut self, commands: &[Cmd], checks: &[usize]) {
+
+        let mut checks_ = FxHashSet::default();
+
+        for check in checks {
+            checks_.insert(*check);
+        }
+
         for command in commands {
-            self.process_instr(command, checks);
+            self.process_instr(command, &checks_);
         }
     }
 
