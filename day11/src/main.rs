@@ -4,12 +4,12 @@ use std::str::FromStr;
 
 fn main() {
     let input: String = fs::read_to_string("input").unwrap();
-    let part1 = solution(&input, 20);
-    let part2 = solution(&input, 100000);
+    let part1 = solution(&input, 20, 3);
+    let part2 = solution(&input, 100000, 3);
     println!("Part1: {}\nPart2: {}", part1, part2);
 }
 
-fn solution(input: &str, steps: usize) -> usize {
+fn solution(input: &str, steps: usize, deflator: usize) -> usize {
     let mut monkeys: Vec<Monkey> = input
         .split("\n\n")
         .map(|s| Monkey::from_str(s).unwrap())
@@ -18,9 +18,8 @@ fn solution(input: &str, steps: usize) -> usize {
     let length = monkeys.len();
 
     for step in 0..steps {
-        dbg!(step);
         for idx in 0..monkeys.len() {
-            let items = monkeys[idx].take_turn();
+            let items = monkeys[idx].take_turn(deflator);
             
             for item in items.into_iter() {
                 monkeys[item.dest].push(item.val);
@@ -44,12 +43,8 @@ impl BigInt {
         let mut val = val;
         let mut pfactors = Vec::new();
         
-        if val > 101 {
-            dbg!(val);
-            panic!("number too big")
-        }
         let primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41,
-                      43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101];
+                      43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97];
 
         while val > 1 {
             for prime in primes {
@@ -88,7 +83,7 @@ impl BigInt {
 
     fn is_div(&self, candidate: usize) -> bool {
         let total_rem: usize = self.components.iter().map(|v| {
-            v.iter().fold(1, |acc, x| (acc % candidate) * x) % candidate
+            v.iter().fold(1, |acc, x| acc * x) % candidate
         }).sum();
 
         if (total_rem % candidate) == 0 {
@@ -98,9 +93,11 @@ impl BigInt {
     }
 }
 
+
+#[derive(Clone, Copy)]
 enum Token {
     Old,
-    Literal(BigInt),
+    Literal(usize),
 }
 
 impl FromStr for Token {
@@ -111,19 +108,20 @@ impl FromStr for Token {
         }
 
         let val = input.parse::<usize>().unwrap();
-        Ok(Token::Literal(BigInt::new(val)))
+        Ok(Token::Literal(val))
     }
 }
 
 impl Token {
-    fn get(&self, old_val: &BigInt) -> BigInt {
+    fn get(&self, old_val: usize) -> usize {
         match self {
-            Self::Old => BigInt {components: old_val.components.clone() },
-            Self::Literal(val) => BigInt { components: val.components.clone() }
+            Self::Old => old_val,
+            Self::Literal(val) => *val
         }
     }
 }
 
+#[derive(Clone, Copy)]
 enum Infix {
     Add(Token, Token),
     Mult(Token, Token),
@@ -151,12 +149,12 @@ impl FromStr for Infix {
 }
 
 struct Throw {
-    val: BigInt,
+    val: usize,
     dest: usize,
 }
 
 struct Monkey {
-    items: VecDeque<BigInt>,
+    items: VecDeque<usize>,
     test: usize,
     infix: Infix,
     if_true: usize,
@@ -174,10 +172,9 @@ impl FromStr for Monkey {
         // items
         let items_lines = lines.next().unwrap();
         let items_str = items_lines.split_once(": ").unwrap().1;
-        let items: VecDeque<BigInt> = items_str
+        let items: VecDeque<usize> = items_str
             .split(", ")
-            .map(|s| s.trim().parse::<usize>().unwrap())
-            .map(|u| BigInt::new(u))
+            .map(|s| s.trim().parse().unwrap())
             .collect();
 
         // operation
@@ -225,29 +222,23 @@ impl FromStr for Monkey {
 }
 
 impl Monkey {
-    fn take_turn(&mut self) -> Vec<Throw> {
+    fn take_turn(&mut self, deflator: usize) -> Vec<Throw> {
         let mut output = Vec::new();
 
         while !self.items.is_empty() {
             self.counter += 1;
             let mut worry = self.items.pop_front().unwrap();
         
-            worry = match &self.infix {
+            worry = match self.infix {
                 Infix::Add(x, y) => {
-                    let mut x = x.get(&worry);
-                    let y = y.get(&worry);
-                    x.add(y);
-                    x
+                    x.get(worry) + y.get(worry)
                 },
                 Infix::Mult(x, y) => {
-                    let mut x = x.get(&worry);
-                    let mut y = y.get(&worry);
-                    x.mult(&mut y);
-                    x
+                    x.get(worry) * y.get(worry)
                 }
-            };
+            } / deflator;
 
-            let dest = if worry.is_div(self.test) {
+            let dest = if (worry % self.test) == 0 {
                 self.if_true
             } else {
                 self.if_false
@@ -258,7 +249,7 @@ impl Monkey {
         output
     }
 
-    fn push(&mut self, new_val: BigInt) {
+    fn push(&mut self, new_val: usize) {
         self.items.push_back(new_val);   
     }
 }
@@ -297,7 +288,8 @@ Monkey 3:
 
     #[test]
     fn example() {
-        assert_eq!(solution(INPUT, 10000), 2713310158);
+        assert_eq!(solution(INPUT, 20, 3), 10605);
+       // assert_eq!(solution(INPUT, 10000, 1), 2713310158);
     }
 
     #[test]
