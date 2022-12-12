@@ -2,26 +2,25 @@ use std::collections::VecDeque;
 use std::fs;
 use std::str::FromStr;
 
-const NPRIMES: usize = 9;
-const PRIMES: [usize; NPRIMES] = [2, 3, 5, 7, 11, 13, 17, 19, 23];
-
 fn main() {
     let input: String = fs::read_to_string("input").unwrap();
-    let part2 = solution(&input, 10000);
-    println!("Part2: {}", part2);
+    let part1 = solution(&input, 20, true);
+    let part2 = solution(&input, 10000, false);
+    println!("Part1: {}\nPart2: {}", part1, part2);
 }
 
-fn solution(input: &str, steps: usize) -> usize {
+fn solution(input: &str, steps: usize, part1: bool) -> usize {
     let mut monkeys: Vec<Monkey> = input
         .split("\n\n")
         .map(|s| Monkey::from_str(s).unwrap())
         .collect();
 
     let length = monkeys.len();
+    let key = monkeys.iter().map(|m| m.test).product();
 
     for _ in 0..steps {
         for idx in 0..monkeys.len() {
-            let items = monkeys[idx].take_turn();
+            let items = monkeys[idx].take_turn(part1, key);
 
             for item in items.into_iter() {
                 monkeys[item.dest].push(item.val);
@@ -35,48 +34,9 @@ fn solution(input: &str, steps: usize) -> usize {
 }
 
 #[derive(Clone, Copy)]
-struct BigInt {
-    components: [usize; NPRIMES],
-}
-
-impl BigInt {
-    fn new(val: usize) -> BigInt {
-        let components: [usize; NPRIMES] = PRIMES.map(|p| val % p);
-        BigInt { components }
-    }
-
-    fn add(&self, other: &BigInt) -> BigInt {
-        let mut components = self.components;
-        for idx in 0..NPRIMES {
-            components[idx] = (self.components[idx] + other.components[idx]) % PRIMES[idx];
-        }
-
-        BigInt { components }
-    }
-
-    fn mult(&self, other: &BigInt) -> BigInt {
-        let mut components = self.components;
-        for idx in 0..NPRIMES {
-            components[idx] = (self.components[idx] * other.components[idx]) % PRIMES[idx];
-        }
-
-        BigInt { components }
-    }
-
-    fn is_div(&self, candidate: usize) -> bool {
-        for (idx, prime) in PRIMES.into_iter().enumerate() {
-            if candidate == prime {
-                return self.components[idx] == 0;
-            }
-        }
-        false
-    }
-}
-
-#[derive(Clone, Copy)]
 enum Token {
     Old,
-    Literal(BigInt),
+    Literal(usize),
 }
 
 impl FromStr for Token {
@@ -87,12 +47,12 @@ impl FromStr for Token {
         }
 
         let val = input.parse::<usize>().unwrap();
-        Ok(Token::Literal(BigInt::new(val)))
+        Ok(Token::Literal(val))
     }
 }
 
 impl Token {
-    fn get(&self, old_val: BigInt) -> BigInt {
+    fn get(&self, old_val: usize) -> usize {
         match self {
             Self::Old => old_val,
             Self::Literal(val) => *val,
@@ -128,12 +88,12 @@ impl FromStr for Infix {
 }
 
 struct Throw {
-    val: BigInt,
+    val: usize,
     dest: usize,
 }
 
 struct Monkey {
-    items: VecDeque<BigInt>,
+    items: VecDeque<usize>,
     test: usize,
     infix: Infix,
     if_true: usize,
@@ -151,10 +111,9 @@ impl FromStr for Monkey {
         // items
         let items_lines = lines.next().unwrap();
         let items_str = items_lines.split_once(": ").unwrap().1;
-        let items: VecDeque<BigInt> = items_str
+        let items: VecDeque<usize> = items_str
             .split(", ")
             .map(|s| s.trim().parse().unwrap())
-            .map(BigInt::new)
             .collect();
 
         // operation
@@ -202,7 +161,7 @@ impl FromStr for Monkey {
 }
 
 impl Monkey {
-    fn take_turn(&mut self) -> Vec<Throw> {
+    fn take_turn(&mut self, part1: bool, key: usize) -> Vec<Throw> {
         let mut output = Vec::new();
 
         while !self.items.is_empty() {
@@ -210,11 +169,13 @@ impl Monkey {
             let mut worry = self.items.pop_front().unwrap();
 
             worry = match self.infix {
-                Infix::Add(x, y) => x.get(worry).add(&y.get(worry)),
-                Infix::Mult(x, y) => x.get(worry).mult(&y.get(worry)),
+                Infix::Add(x, y) => x.get(worry) + y.get(worry),
+                Infix::Mult(x, y) => x.get(worry) * y.get(worry),
             };
 
-            let dest = if worry.is_div(self.test) {
+            worry = if part1 { worry / key } else { worry % key };
+
+            let dest = if (worry % self.test) == 0 {
                 self.if_true
             } else {
                 self.if_false
@@ -225,7 +186,7 @@ impl Monkey {
         output
     }
 
-    fn push(&mut self, new_val: BigInt) {
+    fn push(&mut self, new_val: usize) {
         self.items.push_back(new_val);
     }
 }
@@ -264,6 +225,8 @@ Monkey 3:
 
     #[test]
     fn example() {
-        assert_eq!(solution(INPUT, 10000), 2713310158);
+        assert_eq!(solution(INPUT, 20, Part::One(3)), 10605);
+        let key = 23 * 19 * 13 * 17;
+        assert_eq!(solution(INPUT, 10000, Part::Two(key)), 2713310158);
     }
 }
