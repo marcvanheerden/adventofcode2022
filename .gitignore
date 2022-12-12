@@ -4,7 +4,6 @@
 *input1000
 *input10000
 *.lock
-*.toml
 target
 *ipynb*
 .DS_Store
