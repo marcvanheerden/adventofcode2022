@@ -1,11 +1,19 @@
 use std::collections::HashSet;
 use std::fs;
+use std::thread;
 
 fn main() {
     let input: String = fs::read_to_string("input").unwrap();
     let occupied = get_rock_paths(&input);
-    let part1 = solution1(&occupied);
-    let part2 = solution2(&occupied);
+
+    let mut part1 = 0usize;
+    let mut part2 = 0usize;
+
+    thread::scope(|s| {
+        let thread1 = s.spawn(|| solution1(&occupied));
+        part2 = solution2(&occupied);
+        part1 = thread1.join().unwrap();
+    });
     println!("Part1: {:?}\nPart2: {:?}", part1, part2);
 }
 
@@ -57,62 +65,62 @@ fn solution1(occupied: &HashSet<(usize, usize)>) -> usize {
     let sand_origin = (500usize, 0usize);
     let max_depth = occupied.iter().cloned().map(|(_, y)| y).max().unwrap();
     let mut total_sand = 0usize;
+    let mut sand_path = vec![sand_origin];
+    let mut part: (usize, usize);
 
-    'outer: for sand in 0..usize::MAX {
-        let mut part = sand_origin;
-        loop {
-            if !occupied.contains(&(part.0, part.1 + 1)) {
-                part.1 += 1;
-            } else if !occupied.contains(&(part.0 - 1, part.1 + 1)) {
-                part.1 += 1;
-                part.0 -= 1;
-            } else if !occupied.contains(&(part.0 + 1, part.1 + 1)) {
-                part.1 += 1;
-                part.0 += 1;
-            } else {
-                occupied.insert(part);
-                break;
-            }
-
-            if part.1 > max_depth {
-                total_sand = sand;
-                break 'outer;
-            }
+    loop {
+        part = *sand_path.last().unwrap();
+        if part.1 == max_depth + 1 {
+            break;
+        } else if !occupied.contains(&(part.0, part.1 + 1)) {
+            part.1 += 1;
+            sand_path.push(part);
+        } else if !occupied.contains(&(part.0 - 1, part.1 + 1)) {
+            part.1 += 1;
+            part.0 -= 1;
+            sand_path.push(part);
+        } else if !occupied.contains(&(part.0 + 1, part.1 + 1)) {
+            part.1 += 1;
+            part.0 += 1;
+            sand_path.push(part);
+        } else {
+            occupied.insert(part);
+            total_sand += 1;
+            sand_path.pop();
         }
     }
 
     total_sand
 }
-
 fn solution2(occupied: &HashSet<(usize, usize)>) -> usize {
     let mut occupied = occupied.clone();
     let sand_origin = (500usize, 0usize);
     let max_depth = occupied.iter().cloned().map(|(_, y)| y).max().unwrap();
     let mut total_sand = 0usize;
+    let mut sand_path = vec![sand_origin];
+    let mut part: (usize, usize);
 
-    'outer: for sand in 0..usize::MAX {
-        let mut part = sand_origin;
-        loop {
-            if part.1 == max_depth + 1 {
-                occupied.insert(part);
-                break;
-            }
-            if !occupied.contains(&(part.0, part.1 + 1)) {
-                part.1 += 1;
-            } else if !occupied.contains(&(part.0 - 1, part.1 + 1)) {
-                part.1 += 1;
-                part.0 -= 1;
-            } else if !occupied.contains(&(part.0 + 1, part.1 + 1)) {
-                part.1 += 1;
-                part.0 += 1;
-            } else {
-                if part == sand_origin {
-                    total_sand = sand + 1;
-                    break 'outer;
-                }
-                occupied.insert(part);
-                break;
-            }
+    while !occupied.contains(&sand_origin) {
+        part = *sand_path.last().unwrap();
+        if part.1 == max_depth + 1 {
+            occupied.insert(part);
+            total_sand += 1;
+            sand_path.pop();
+        } else if !occupied.contains(&(part.0, part.1 + 1)) {
+            part.1 += 1;
+            sand_path.push(part);
+        } else if !occupied.contains(&(part.0 - 1, part.1 + 1)) {
+            part.1 += 1;
+            part.0 -= 1;
+            sand_path.push(part);
+        } else if !occupied.contains(&(part.0 + 1, part.1 + 1)) {
+            part.1 += 1;
+            part.0 += 1;
+            sand_path.push(part);
+        } else {
+            occupied.insert(part);
+            total_sand += 1;
+            sand_path.pop();
         }
     }
 
