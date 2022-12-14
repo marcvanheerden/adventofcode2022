@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use fxhash::FxHashSet;
 use std::fs;
 use std::thread;
 
@@ -10,15 +10,15 @@ fn main() {
     let mut part2 = 0usize;
 
     thread::scope(|s| {
-        let thread1 = s.spawn(|| solution1(&occupied));
-        part2 = solution2(&occupied);
+        let thread1 = s.spawn(|| solution1(&occupied, (500, 0)));
+        part2 = solution2(&occupied, (500, 0));
         part1 = thread1.join().unwrap();
     });
     println!("Part1: {:?}\nPart2: {:?}", part1, part2);
 }
 
-fn get_rock_paths(input: &str) -> HashSet<(usize, usize)> {
-    let mut occupied: HashSet<(usize, usize)> = HashSet::new();
+fn get_rock_paths(input: &str) -> FxHashSet<(usize, usize)> {
+    let mut occupied: FxHashSet<(usize, usize)> = FxHashSet::default();
 
     let rock_paths: Vec<Vec<(usize, usize)>> = input
         .lines()
@@ -60,9 +60,8 @@ fn get_rock_paths(input: &str) -> HashSet<(usize, usize)> {
     occupied
 }
 
-fn solution1(occupied: &HashSet<(usize, usize)>) -> usize {
+fn solution1(occupied: &FxHashSet<(usize, usize)>, sand_origin: (usize, usize)) -> usize {
     let mut occupied = occupied.clone();
-    let sand_origin = (500usize, 0usize);
     let max_depth = occupied.iter().cloned().map(|(_, y)| y).max().unwrap();
     let mut total_sand = 0usize;
     let mut sand_path = vec![sand_origin];
@@ -92,9 +91,8 @@ fn solution1(occupied: &HashSet<(usize, usize)>) -> usize {
 
     total_sand
 }
-fn solution2(occupied: &HashSet<(usize, usize)>) -> usize {
+fn solution2(occupied: &FxHashSet<(usize, usize)>, sand_origin: (usize, usize)) -> usize {
     let mut occupied = occupied.clone();
-    let sand_origin = (500usize, 0usize);
     let max_depth = occupied.iter().cloned().map(|(_, y)| y).max().unwrap();
     let mut total_sand = 0usize;
     let mut sand_path = vec![sand_origin];
@@ -136,11 +134,11 @@ mod tests {
     #[test]
     fn example() {
         let map = get_rock_paths(INPUT);
-        assert_eq!(solution1(&map), 24);
+        assert_eq!(solution1(&map, (500, 0)), 24);
     }
     #[test]
     fn example2() {
         let map = get_rock_paths(INPUT);
-        assert_eq!(solution2(&map), 93);
+        assert_eq!(solution2(&map, (500, 0)), 93);
     }
 }
