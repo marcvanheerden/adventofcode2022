@@ -5,12 +5,16 @@ use rayon::prelude::*;
 
 fn main() {
     let input: String = fs::read_to_string("input").unwrap();
-    let part1 = solution1(&input, 2000_000);
-    let part2 = solution2(&input, 4000000, 4000000);
+    let part1 = solution1(&input, 2_000_000);
+    let part2 = solution2(&input, 4_000_000, 4_000_000);
     println!("Part1: {:?}\nPart2: {:?}", part1, part2);
 }
 
-fn get_points(input: &str) -> (HashMap<(isize, isize), (isize, isize, isize)>, (isize, isize, isize, isize)) {
+type Map = (HashMap<(isize, isize), (isize, isize, isize)>,
+                (isize, isize, isize, isize));
+
+fn get_points(input: &str) -> (HashMap<(isize, isize), (isize, isize, isize)>,
+                (isize, isize, isize, isize)) {
     let mut points = HashMap::new();
     let mut minx = isize::MAX;
     let mut miny = isize::MAX;
@@ -78,12 +82,8 @@ fn solution2(input: &str, maxx: isize, maxy: isize) -> Option<isize> {
         .find_map_any(|x| {
             let mut y = 0;
             'this: while y <= maxy {
-                let mut poi = false;
+                let mut beaconorsensor = false;
                 for (key, val) in &points {
-                    if [(val.0, val.1), *key].contains(&(*x, y)) {
-                        poi = true;
-                        continue
-                    }
                     if manh_dist(key.0, key.1, *x, y) <= val.2 {
                         for exp in 2..40 {
                             let cand_y = y - 1 + 2isize.pow(exp);
@@ -94,15 +94,17 @@ fn solution2(input: &str, maxx: isize, maxy: isize) -> Option<isize> {
                         }
                         continue 'this
                     }
+                    if [(val.0, val.1), *key].contains(&(*x, y)) {
+                        beaconorsensor = true;
+                    }
                 }
-                if !poi {
+                if !beaconorsensor {
                     return Some(x * 4000000 + y)
                 }
                 y += 1;
             }
             None
         })
-
 }
 
 #[cfg(test)]
