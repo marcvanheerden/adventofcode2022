@@ -1,6 +1,7 @@
 use std::fs;
 use std::collections::HashMap;
 use std::cmp::{min, max};
+use rayon::prelude::*;
 
 fn main() {
     let input: String = fs::read_to_string("input").unwrap();
@@ -71,37 +72,37 @@ fn solution1(input: &str, row: isize) -> isize {
 
 fn solution2(input: &str, maxx: isize, maxy: isize) -> Option<isize> {
     let (points, _) = get_points(input);
+    let columns: Vec<_> = (0..=maxx).collect();
 
-    let mut x = 0;
-    while x <= maxx {
-        let mut y = 0;
-        'this: while y <= maxy {
-            let mut poi = false;
-            for (key, val) in &points {
-                if [(val.0, val.1), *key].contains(&(x, y)) {
-                    poi = true;
-                    continue
-                }
-                if manh_dist(key.0, key.1, x, y) <= val.2 {
-                    for exp in 2..40 {
-                        let cand_y = y - 1 + 2isize.pow(exp);
-                        if manh_dist(key.0, key.1, x, cand_y) > val.2 {
-                            y = y - 1 + 2isize.pow(exp - 1);
-                            continue 'this
-                        }
+    columns.par_iter()
+        .find_map_any(|x| {
+            let mut y = 0;
+            'this: while y <= maxy {
+                let mut poi = false;
+                for (key, val) in &points {
+                    if [(val.0, val.1), *key].contains(&(*x, y)) {
+                        poi = true;
+                        continue
                     }
-                    continue 'this
+                    if manh_dist(key.0, key.1, *x, y) <= val.2 {
+                        for exp in 2..40 {
+                            let cand_y = y - 1 + 2isize.pow(exp);
+                            if manh_dist(key.0, key.1, *x, cand_y) > val.2 {
+                                y = y - 1 + 2isize.pow(exp - 1);
+                                continue 'this
+                            }
+                        }
+                        continue 'this
+                    }
                 }
+                if !poi {
+                    return Some(x * 4000000 + y)
+                }
+                y += 1;
             }
-            if !poi {
-                return Some(x * 4000000 + y)
-            }
-            y += 1;
-        }
-        x += 1;
-    }
+            None
+        })
 
-    None
 }
 
 #[cfg(test)]
