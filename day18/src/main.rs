@@ -74,7 +74,6 @@ fn solution2(input: &str) -> usize {
     let occupied_space: HashSet<Point3D> = points.clone().into_iter().collect();
     let clusters = make_clusters(&points, true);
 
-    dbg!(clusters.iter().map(|c| c.len()).collect::<Vec<usize>>());
     clusters
         .iter()
         .map(|c| exterior_sides(c, &occupied_space, false))
@@ -87,13 +86,10 @@ fn make_clusters(points: &[Point3D], diag: bool) -> Vec<Vec<Point3D>> {
     let mut cluster_idx = 0;
 
     'outer: for point in points.iter() {
-        for cluster in 0..=cluster_idx {
-            let close = clusters[cluster]
-                .iter()
-                .filter(|p| point.adjacent(p, diag))
-                .count();
+        for cluster in clusters.iter_mut() {
+            let close = cluster.iter().filter(|p| point.adjacent(p, diag)).count();
             if close > 0 {
-                clusters[cluster].push(point.clone());
+                cluster.push(point.clone());
                 continue 'outer;
             }
         }
@@ -179,29 +175,14 @@ fn exterior_sides(points: &[Point3D], occupied: &HashSet<Point3D>, diag: bool) -
     }
 
     let mut space_cluster = make_clusters(&points_cluster, false);
-    dbg!(&space_cluster
-        .iter()
-        .map(|c| c.len())
-        .collect::<Vec<usize>>());
     let corner = Point3D {
         x: x_bound.last().unwrap(),
         y: y_bound.last().unwrap(),
         z: z_bound.last().unwrap(),
     };
+
     // keep only the outer space
     space_cluster.retain(|c| c.contains(&corner));
-
-    //let mut filled_points: Vec<_> = points.iter().cloned().collect();
-
-    //for cluster in space_cluster.iter_mut() {
-    //    filled_points.append(cluster);
-    //}
-
-    //let mut surface_area = 0;
-    //for point in filled_points.iter() {
-    //    let adjacent = filled_points.iter().filter(|p| point.dist(p) == 1).count();
-    //    surface_area += 6 - adjacent;
-    //}
 
     let mut surface_area = 0;
 
