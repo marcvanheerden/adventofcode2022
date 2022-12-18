@@ -2,11 +2,21 @@
 use std::cmp::max;
 use std::collections::HashMap;
 use std::fs;
+use std::thread;
 
 fn main() {
     let input: String = fs::read_to_string("input").unwrap();
-    let part1 = solution1(&input);
-    let part2 = solution2(&input);
+    let mut part1 = 0usize;
+    let mut part2 = 0usize;
+
+    thread::scope(|s| {
+        let thread1 = s.spawn(|| {
+            solution1(&input)
+        });
+        part2 = solution2(&input);
+        part1 = thread1.join().unwrap();
+    });
+
     println!("Part1: {:?}\nPart2: {:?}", part1, part2);
 }
 
