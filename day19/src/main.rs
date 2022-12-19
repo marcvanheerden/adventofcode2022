@@ -1,8 +1,10 @@
+use rayon::prelude::*;
 use std::collections::VecDeque;
 use std::fs;
 use std::ops::{Add, Sub};
 use std::str::FromStr;
-use rayon::prelude::*;
+
+const KEEPTOP: usize = 100;
 
 fn main() {
     let input: String = fs::read_to_string("input").unwrap();
@@ -168,7 +170,7 @@ fn optimal_path(
 
     tasks.push_back(Task {
         fleet,
-        blueprint: blueprint.clone(),
+        blueprint,
         materials,
         time_left,
         next: NextBot::Ore,
@@ -177,19 +179,20 @@ fn optimal_path(
     let mut finished_tasks = Vec::new();
 
     while !tasks.is_empty() {
-        if tasks.len() >= 50_000 {
+        // score the tasks in the queue, keep the best ones
+        if tasks.len() >= KEEPTOP {
             let mut task_vec: Vec<_> = tasks.into_iter().collect();
             task_vec.sort_by_key(|t| {
                 t.fleet.geode_bots * t.time_left * 1000
                     + t.fleet.obsidian_bots * t.time_left * 100
                     + t.fleet.clay_bots * t.time_left * 10
                     + t.fleet.ore_bots * t.time_left
-                    + t.materials.geode * 1000 
-                    + t.materials.obsidian * 100 
-                    + t.materials.clay * 10 
+                    + t.materials.geode * 1000
+                    + t.materials.obsidian * 100
+                    + t.materials.clay * 10
                     + t.materials.ore
             });
-            tasks = task_vec.into_iter().rev().take(50_000).collect();
+            tasks = task_vec.into_iter().rev().take(KEEPTOP).collect();
         }
 
         let mut new_tasks = VecDeque::new();
@@ -309,27 +312,13 @@ fn solution(input: &str) -> (usize, usize) {
 
     let part1 = blueprints
         .par_iter()
-        .map(|b| {
-            optimal_path(
-                start_fleet.clone(),
-                b.clone(),
-                start_materials.clone(),
-                24 + 1,
-            ) * b.no
-        })
+        .map(|b| optimal_path(start_fleet.clone(), b.clone(), start_materials, 24 + 1) * b.no)
         .sum();
 
     let part2: usize = blueprints
         .par_iter()
         .take(3)
-        .map(|b| {
-            optimal_path(
-                start_fleet.clone(),
-                b.clone(),
-                start_materials.clone(),
-                32 + 1,
-            )
-        })
+        .map(|b| optimal_path(start_fleet.clone(), b.clone(), start_materials, 32 + 1))
         .product();
 
     (part1, part2)
