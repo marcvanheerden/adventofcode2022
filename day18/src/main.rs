@@ -1,4 +1,5 @@
-use std::collections::HashSet;
+use fxhash::FxHashSet;
+use rayon::prelude::*;
 use std::fs;
 use std::str::FromStr;
 
@@ -51,27 +52,26 @@ impl FromStr for Point3D {
 
 fn solution1(input: &str) -> usize {
     let points: Vec<_> = input
-        .lines()
+        .par_lines()
         .map(|s| Point3D::from_str(s).unwrap())
         .collect();
-    let points2 = points.clone();
-    let mut surface_area = 0usize;
 
-    for point in points.into_iter() {
-        let adjacent = points2.iter().filter(|p| point.adjacent(p, false)).count();
-        surface_area += 6 - adjacent;
-    }
-
-    surface_area
+    points
+        .par_iter()
+        .map(|point| {
+            let adjacent = points.iter().filter(|p| point.adjacent(p, false)).count();
+            6 - adjacent
+        })
+        .sum()
 }
 
 fn solution2(input: &str) -> usize {
     let points: Vec<_> = input
-        .lines()
+        .par_lines()
         .map(|s| Point3D::from_str(s).unwrap())
         .collect();
 
-    let occupied_space: HashSet<Point3D> = points.clone().into_iter().collect();
+    let occupied_space: FxHashSet<Point3D> = points.clone().into_iter().collect();
     let clusters = make_clusters(&points, true);
 
     clusters
@@ -111,23 +111,25 @@ fn make_clusters(points: &[Point3D], diag: bool) -> Vec<Vec<Point3D>> {
 }
 
 fn to_recombine(clusters: &[Vec<Point3D>], diag: bool) -> Option<(usize, usize)> {
-    for (idx1, cluster1) in clusters.iter().enumerate() {
-        for (idx2, cluster2) in clusters.iter().enumerate() {
-            if idx1 >= idx2 {
-                continue;
+    clusters
+        .par_iter()
+        .enumerate()
+        .find_map_any(|(idx1, cluster1)| {
+            for (idx2, cluster2) in clusters.iter().enumerate() {
+                if idx1 >= idx2 {
+                    continue;
+                }
+
+                let touching = cluster1
+                    .iter()
+                    .any(|c1| cluster2.iter().any(|c2| c1.adjacent(c2, diag)));
+
+                if touching {
+                    return Some((idx1, idx2));
+                }
             }
-
-            let touching = cluster1
-                .iter()
-                .any(|c1| cluster2.iter().any(|c2| c1.adjacent(c2, diag)));
-
-            if touching {
-                return Some((idx1, idx2));
-            }
-        }
-    }
-
-    None
+            None
+        })
 }
 
 fn recombine(clusters: &mut Vec<Vec<Point3D>>, pair: (usize, usize)) {
@@ -136,7 +138,7 @@ fn recombine(clusters: &mut Vec<Vec<Point3D>>, pair: (usize, usize)) {
     clusters.remove(pair.0);
 }
 
-fn exterior_sides(points: &[Point3D], occupied: &HashSet<Point3D>, diag: bool) -> usize {
+fn exterior_sides(points: &[Point3D], occupied: &FxHashSet<Point3D>, diag: bool) -> usize {
     if points.len() == 1 {
         return 6;
     }
@@ -184,16 +186,15 @@ fn exterior_sides(points: &[Point3D], occupied: &HashSet<Point3D>, diag: bool) -
     // keep only the outer space
     space_cluster.retain(|c| c.contains(&corner));
 
-    let mut surface_area = 0;
-
-    for point in points.iter() {
-        surface_area += space_cluster[0]
-            .iter()
-            .filter(|s| point.adjacent(s, false))
-            .count();
-    }
-
-    surface_area
+    points
+        .par_iter()
+        .map(|point| {
+            space_cluster[0]
+                .iter()
+                .filter(|s| point.adjacent(s, false))
+                .count()
+        })
+        .sum()
 }
 
 #[cfg(test)]

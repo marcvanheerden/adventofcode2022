@@ -1,4 +1,3 @@
-#![feature(drain_filter)]
 use std::cmp::max;
 use std::collections::HashMap;
 use std::fs;
