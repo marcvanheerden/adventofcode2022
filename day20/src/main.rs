@@ -1,49 +1,62 @@
 use std::collections::VecDeque;
 use std::fs;
+use std::thread;
 
 fn main() {
     let input: String = fs::read_to_string("input").unwrap();
 
-    let numbers: Vec<(usize, isize)> = input
-        .lines()
-        .enumerate()
-        .map(|(idx, s)| (idx, s.parse::<isize>().unwrap()))
-        .collect();
+    let numbers: Vec<isize> = input.lines().map(|s| s.parse::<isize>().unwrap()).collect();
 
-    let part1 = solution(&numbers, 1, 1);
-    let part2 = solution(&numbers, 811589153, 10);
+    let mut part1 = 0isize;
+    let mut part2 = 0isize;
+
+    thread::scope(|s| {
+        let thread1 = s.spawn(|| solution(&numbers, 1, 1));
+        part2 = solution(&numbers, 811589153, 10);
+        part1 = thread1.join().unwrap();
+    });
+
     println!("Part1: {:?}\nPart2: {:?}", part1, part2);
 }
 
-fn solution(numbers: &[(usize, isize)], mult: isize, rep: usize) -> isize {
-    let mut numbers: VecDeque<_> = numbers
+fn solution(numbers: &[isize], mult: isize, rep: usize) -> isize {
+    let len_minus1 = numbers.len() - 1;
+
+    let numbers: Vec<(isize, bool, usize)> = numbers
         .iter()
         .cloned()
-        .map(|(idx, val)| (idx, val * mult))
+        .map(|val| val * mult)
+        .map(|val| (val, val > 0, val.unsigned_abs() % len_minus1))
         .collect();
 
-    for _ in 0..rep {
-        for idx in 0..numbers.len() {
-            let pos = numbers.iter().position(|(idx1, _)| *idx1 == idx).unwrap();
-            numbers.rotate_left(pos);
+    let mut indices: VecDeque<_> = (0..=len_minus1).collect();
 
-            let to_move = numbers.pop_front().unwrap();
-            if to_move.1 < 0 {
-                numbers.rotate_right(to_move.1.unsigned_abs() % numbers.len());
+    for _ in 0..rep {
+        for idx in 0..=len_minus1 {
+            // rotate until the current entry is first in the VecDeque
+            let pos = indices.iter().position(|idx1| *idx1 == idx).unwrap();
+            indices.rotate_left(pos);
+
+            let to_move = indices.pop_front().unwrap();
+            let metadata = numbers[to_move];
+
+            if metadata.1 {
+                indices.rotate_left(metadata.2);
             } else {
-                numbers.rotate_left(to_move.1.unsigned_abs() % numbers.len());
+                indices.rotate_right(metadata.2);
             }
-            numbers.push_front(to_move);
+            indices.push_front(to_move);
         }
     }
 
-    let pos = numbers.iter().position(|(_, val)| *val == 0).unwrap();
-    numbers.rotate_left(pos);
+    let pos = indices.iter().position(|idx| numbers[*idx].0 == 0).unwrap();
+    indices.rotate_left(pos);
 
-    numbers[1000 % numbers.len()].1
-        + numbers[2000 % numbers.len()].1
-        + numbers[3000 % numbers.len()].1
+    numbers[indices[1000 % indices.len()]].0
+        + numbers[indices[2000 % indices.len()]].0
+        + numbers[indices[3000 % indices.len()]].0
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -57,21 +70,13 @@ mod tests {
 
     #[test]
     fn example() {
-        let numbers: Vec<(usize, isize)> = INPUT
-            .lines()
-            .enumerate()
-            .map(|(idx, s)| (idx, s.parse::<isize>().unwrap()))
-            .collect();
+        let numbers: Vec<isize> = INPUT.lines().map(|s| s.parse::<isize>().unwrap()).collect();
 
         assert_eq!(solution(&numbers, 1, 1), 3);
     }
     #[test]
     fn example2() {
-        let numbers: Vec<(usize, isize)> = INPUT
-            .lines()
-            .enumerate()
-            .map(|(idx, s)| (idx, s.parse::<isize>().unwrap()))
-            .collect();
+        let numbers: Vec<isize> = INPUT.lines().map(|s| s.parse::<isize>().unwrap()).collect();
 
         assert_eq!(solution(&numbers, 811589153, 10), 1623178306);
     }
