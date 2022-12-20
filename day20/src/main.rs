@@ -24,9 +24,8 @@ fn solution(numbers: &[(usize, isize)], mult: isize, rep: usize) -> isize {
 
     for _ in 0..rep {
         for idx in 0..numbers.len() {
-            while numbers[0].0 != idx {
-                numbers.rotate_left(1);
-            }
+            let pos = numbers.iter().position(|(idx1, _)| *idx1 == idx).unwrap();
+            numbers.rotate_left(pos);
 
             let to_move = numbers.pop_front().unwrap();
             if to_move.1 < 0 {
@@ -38,9 +37,8 @@ fn solution(numbers: &[(usize, isize)], mult: isize, rep: usize) -> isize {
         }
     }
 
-    while numbers[0].1 != 0 {
-        numbers.rotate_left(1);
-    }
+    let pos = numbers.iter().position(|(_, val)| *val == 0).unwrap();
+    numbers.rotate_left(pos);
 
     numbers[1000 % numbers.len()].1
         + numbers[2000 % numbers.len()].1
