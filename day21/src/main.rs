@@ -1,11 +1,20 @@
 use std::collections::HashMap;
 use std::fs;
+use std::thread;
 
 fn main() {
     let input: String = fs::read_to_string("input").unwrap();
     let (solved, to_solve) = pre_process(&input);
-    let part1 = solution1(&solved, &to_solve);
-    let part2 = solution2(&solved, &to_solve);
+
+    let mut part1 = 0isize;
+    let mut part2 = 0isize;
+
+    thread::scope(|s| {
+        let thread1 = s.spawn(|| solution1(&solved, &to_solve));
+        part2 = solution2(&solved, &to_solve);
+        part1 = thread1.join().unwrap();
+    });
+
     println!("Part1: {:?}\nPart2: {:?}", part1, part2);
 }
 
@@ -21,18 +30,19 @@ enum Op {
 }
 
 fn pre_process(input: &str) -> (HashMap<&str, isize>, Vec<Equation>) {
-    let mut solved: HashMap<&str, isize> = HashMap::new();
-    let mut to_solve = Vec::new();
+    let parts: Vec<_> = input.lines().map(|l| l.split_once(':').unwrap()).collect();
 
-    for line in input.lines() {
-        let split = line.split_once(':').unwrap();
+    let solved: HashMap<&str, isize> = parts
+        .iter()
+        .filter(|(_, s2)| s2.len() < 6)
+        .map(|(s1, s2)| (*s1, s2.trim().parse::<isize>().unwrap()))
+        .collect();
 
-        let name = split.0;
-
-        if split.1.len() < 6 {
-            solved.insert(name, split.1.trim().parse::<isize>().unwrap());
-        } else {
-            let split2: Vec<&str> = split.1.split_whitespace().collect();
+    let to_solve: Vec<_> = parts
+        .into_iter()
+        .filter(|(_, s2)| s2.len() >= 6)
+        .map(|(name, s2)| {
+            let split2: Vec<&str> = s2.split_whitespace().collect();
             let op = match split2[1] {
                 "+" => Op::Add,
                 "-" => Op::Sub,
@@ -41,9 +51,9 @@ fn pre_process(input: &str) -> (HashMap<&str, isize>, Vec<Equation>) {
                 _ => panic!(),
             };
 
-            to_solve.push((name, op, split2[0], split2[2]));
-        }
-    }
+            (name, op, split2[0], split2[2])
+        })
+        .collect();
 
     (solved, to_solve)
 }
@@ -79,6 +89,7 @@ fn solution2(solved: &HashMap<&str, isize>, to_solve: &[Equation]) -> isize {
     let mut to_solve = to_solve.to_vec();
     let solved = solved.clone();
 
+    // replace root monkey operation
     for equation in to_solve.iter_mut() {
         if equation.0 == "root" {
             equation.1 = Op::Eq;
@@ -112,6 +123,7 @@ fn calculate(cand: isize, to_solve: &[Equation], solved: &HashMap<&str, isize>) 
 
     let human = solved.get_mut("humn").unwrap();
     *human = cand;
+
     while !solved.contains_key("root") {
         for idx in 0..to_solve.len() {
             if solved.contains_key(to_solve[idx].2) & solved.contains_key(to_solve[idx].3) {
