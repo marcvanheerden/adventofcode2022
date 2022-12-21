@@ -3,10 +3,13 @@ use std::fs;
 
 fn main() {
     let input: String = fs::read_to_string("input").unwrap();
-    let part1 = solution1(&input);
-    let part2 = solution2(&input);
+    let (solved, to_solve) = pre_process(&input);
+    let part1 = solution1(&solved, &to_solve);
+    let part2 = solution2(&solved, &to_solve);
     println!("Part1: {:?}\nPart2: {:?}", part1, part2);
 }
+
+type Equation<'a> = (&'a str, Op, &'a str, &'a str);
 
 #[derive(Debug, Clone)]
 enum Op {
@@ -17,9 +20,9 @@ enum Op {
     Eq,
 }
 
-fn solution1(input: &str) -> isize {
+fn pre_process(input: &str) -> (HashMap<&str, isize>, Vec<Equation>) {
     let mut solved: HashMap<&str, isize> = HashMap::new();
-    let mut to_solve: Vec<(&str, Op, &str, &str)> = Vec::new();
+    let mut to_solve = Vec::new();
 
     for line in input.lines() {
         let split = line.split_once(':').unwrap();
@@ -41,6 +44,13 @@ fn solution1(input: &str) -> isize {
             to_solve.push((name, op, split2[0], split2[2]));
         }
     }
+
+    (solved, to_solve)
+}
+
+fn solution1(solved: &HashMap<&str, isize>, to_solve: &[Equation]) -> isize {
+    let mut to_solve = to_solve.to_vec();
+    let mut solved = solved.clone();
 
     while !solved.contains_key("root") {
         for idx in 0..to_solve.len() {
@@ -65,40 +75,20 @@ fn solution1(input: &str) -> isize {
     *solved.get("root").unwrap()
 }
 
-fn solution2(input: &str) -> isize {
-    let mut solved: HashMap<&str, isize> = HashMap::new();
-    let mut to_solve: Vec<(&str, Op, &str, &str)> = Vec::new();
+fn solution2(solved: &HashMap<&str, isize>, to_solve: &[Equation]) -> isize {
+    let mut to_solve = to_solve.to_vec();
+    let solved = solved.clone();
 
-    for line in input.lines() {
-        let split = line.split_once(':').unwrap();
-
-        let name = split.0;
-
-        if split.1.len() < 6 {
-            solved.insert(name, split.1.trim().parse::<isize>().unwrap());
-        } else {
-            let split2: Vec<&str> = split.1.split_whitespace().collect();
-            let mut op = match split2[1] {
-                "+" => Op::Add,
-                "-" => Op::Sub,
-                "*" => Op::Mult,
-                "/" => Op::Div,
-                _ => panic!(),
-            };
-
-            if name == "root" {
-                op = Op::Eq;
-            }
-
-            to_solve.push((name, op, split2[0], split2[2]));
+    for equation in to_solve.iter_mut() {
+        if equation.0 == "root" {
+            equation.1 = Op::Eq;
         }
     }
 
-    let mut newt: Vec<(isize, isize)> = Vec::new();
-
     // use newton-raphson algorithm to solve equation
+    let mut newt: Vec<(isize, isize)> = Vec::new();
     for guess in [1, 100] {
-        newt.push((guess, test(guess, &to_solve, &solved)))
+        newt.push((guess, calculate(guess, &to_solve, &solved)))
     }
 
     for idx in 1..10 {
@@ -107,7 +97,7 @@ fn solution2(input: &str) -> isize {
 
         let next_x = (newt[idx].0 as f64 - (newt[idx].1 as f64 / (dy / dx))) as isize;
 
-        newt.push((next_x, test(next_x, &to_solve, &solved)));
+        newt.push((next_x, calculate(next_x, &to_solve, &solved)));
         if newt.last().unwrap().1 == 0 {
             break;
         }
@@ -116,7 +106,7 @@ fn solution2(input: &str) -> isize {
     newt.last().unwrap().0
 }
 
-fn test(cand: isize, to_solve: &[(&str, Op, &str, &str)], solved: &HashMap<&str, isize>) -> isize {
+fn calculate(cand: isize, to_solve: &[Equation], solved: &HashMap<&str, isize>) -> isize {
     let mut to_solve: Vec<_> = to_solve.to_vec();
     let mut solved = solved.clone();
 
@@ -165,11 +155,13 @@ hmdt: 32";
 
     #[test]
     fn example() {
-        assert_eq!(solution1(INPUT), 152);
+        let (solved, to_solve) = pre_process(INPUT);
+        assert_eq!(solution1(&solved, &to_solve), 152);
     }
 
     #[test]
     fn example2() {
-        assert_eq!(solution2(INPUT), 302);
+        let (solved, to_solve) = pre_process(INPUT);
+        assert_eq!(solution2(&solved, &to_solve), 302);
     }
 }
