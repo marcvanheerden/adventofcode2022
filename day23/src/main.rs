@@ -1,5 +1,5 @@
-use std::collections::VecDeque;
 use fxhash::FxHashSet;
+use std::collections::VecDeque;
 use std::fs;
 
 fn main() {
